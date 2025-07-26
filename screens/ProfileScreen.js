@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,27 +8,70 @@ import {
   StatusBar,
   Platform,
   Image,
-  TouchableOpacity
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../constants/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import colors from '../constants/colors'; // Adjust the path if needed
 
 const ProfileScreen = ({ navigation }) => {
-  const profileData = {
-    name: 'YAKKATILI SHANMUKHA PRIVA',
-    class: '5TH CLASS / English / A',
-    fatherName: 'YAKKATILIKOTESHWAR RAO',
-    contactNo: '9866550275',
-    address: '10-96-1, UDA COLONY, AMARAYATHI PLOTS, CHENCHUPET, TENALI',
-    school: 'English Medium School',
+  const [profileData, setProfileData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfileData = async () => {
+    try {
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (!userDataString) throw new Error('User data not found');
+
+      const userData = JSON.parse(userDataString);
+      const { branch, seqStudentId } = userData;
+
+      if (!branch || !seqStudentId) throw new Error('Branch or Student ID missing');
+
+      const response = await fetch(
+        `https://oxfordjc.com/appservices/studentprofile.php?seqStudentId=${seqStudentId}&branch=${branch}`
+      );
+      const responseText = await response.text();
+
+      if (responseText.includes('<html')) throw new Error('Invalid response');
+
+      const json = JSON.parse(responseText);
+      setProfileData(json[0]);
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.loader}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!profileData) {
+    return (
+      <View style={styles.loader}>
+        <Text style={{ color: 'red' }}>No profile data available.</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
         <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-        
+
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-left" size={24} color="#FFF" />
@@ -37,15 +80,16 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.headerRight} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Profile Header */}
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <Image
-                source={require('../assets/avatar.png')}
+                source={
+                  profileData.stuphoto
+                    ? { uri: profileData.stuphoto }
+                    : require('../assets/avatar.png')
+                }
                 style={styles.avatar}
                 resizeMode="contain"
               />
@@ -53,10 +97,10 @@ const ProfileScreen = ({ navigation }) => {
                 <Icon name="check-decagram" size={20} color="#FFF" />
               </View>
             </View>
-            <Text style={styles.schoolName}>{profileData.school}</Text>
-            <Text style={styles.userName}>{profileData.name}</Text>
+            <Text style={styles.schoolName}>Oxford Junior College</Text>
+            <Text style={styles.userName}>{`${profileData.name} ${profileData.surname}`}</Text>
             <Text style={styles.userClass}>
-              <Icon name="school" size={16} color={colors.primary} /> {profileData.class}
+              <Icon name="school" size={16} color={colors.primary} /> {`${profileData.className} / ${profileData.groupName} / ${profileData.sectionName}`}
             </Text>
           </View>
 
@@ -64,42 +108,15 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.detailsCard}>
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Personal Information</Text>
-              
-              <View style={styles.detailItem}>
-                <View style={styles.detailIconContainer}>
-                  <Icon name="account" size={20} color="#FFF" />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Father's Name</Text>
-                  <Text style={styles.detailValue}>{profileData.fatherName}</Text>
-                </View>
-              </View>
 
-              <View style={styles.detailItem}>
-                <View style={styles.detailIconContainer}>
-                  <Icon name="phone" size={20} color="#FFF" />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Contact Number</Text>
-                  <Text style={styles.detailValue}>{profileData.contactNo}</Text>
-                </View>
-              </View>
-
-              <View style={styles.detailItem}>
-                <View style={styles.detailIconContainer}>
-                  <Icon name="map-marker" size={20} color="#FFF" />
-                </View>
-                <View style={styles.detailTextContainer}>
-                  <Text style={styles.detailLabel}>Address</Text>
-                  <Text style={styles.detailValue}>{profileData.address}</Text>
-                </View>
-              </View>
+              <DetailItem icon="account" label="Father's Name" value={profileData.fatherName} />
+              <DetailItem icon="phone" label="Contact Number" value={profileData.mobileNo} />
+              <DetailItem icon="map-marker" label="Address" value={profileData.address} />
+              <DetailItem icon="map" label="Location" value={profileData.location} />
             </View>
 
-            {/* Academic Information */}
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Academic Information</Text>
-              
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
                   <View style={[styles.infoIconContainer, { backgroundColor: '#E3F2FD' }]}>
@@ -108,13 +125,12 @@ const ProfileScreen = ({ navigation }) => {
                   <Text style={styles.infoLabel}>Academic Year</Text>
                   <Text style={styles.infoValue}>2024-2025</Text>
                 </View>
-
                 <View style={styles.infoItem}>
                   <View style={[styles.infoIconContainer, { backgroundColor: '#E8F5E9' }]}>
-                    <Icon name="account-group" size={20} color="#4CAF50" />
+                    <Icon name="account-badge" size={20} color="#4CAF50" />
                   </View>
-                  <Text style={styles.infoLabel}>Class Teacher</Text>
-                  <Text style={styles.infoValue}>Mrs. Lakshmi</Text>
+                  <Text style={styles.infoLabel}>Mode</Text>
+                  <Text style={styles.infoValue}>{profileData.modeOfAdmission}</Text>
                 </View>
               </View>
             </View>
@@ -125,14 +141,21 @@ const ProfileScreen = ({ navigation }) => {
   );
 };
 
+const DetailItem = ({ icon, label, value }) => (
+  <View style={styles.detailItem}>
+    <View style={styles.detailIconContainer}>
+      <Icon name={icon} size={20} color="#FFF" />
+    </View>
+    <View style={styles.detailTextContainer}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.primary,
-  },
-  gradientBackground: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.primary },
+  gradientBackground: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -142,9 +165,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
   },
-  backButton: {
-    padding: 10,
-  },
+  backButton: { padding: 10 },
   headerTitle: {
     fontSize: 22,
     color: '#FFF',
@@ -153,12 +174,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginLeft: -24,
   },
-  headerRight: {
-    width: 24,
-  },
-  scrollContent: {
-    paddingBottom: 30,
-  },
+  headerRight: { width: 24 },
+  scrollContent: { paddingBottom: 30 },
   profileHeader: {
     alignItems: 'center',
     paddingVertical: 25,
@@ -179,11 +196,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     position: 'relative',
   },
-  avatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-  },
+  avatar: { width: 110, height: 110, borderRadius: 55 },
   verifiedBadge: {
     position: 'absolute',
     bottom: 5,
@@ -214,8 +227,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     fontWeight: '600',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   detailsCard: {
     backgroundColor: colors.cardBackground,
@@ -228,9 +239,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  detailSection: {
-    marginBottom: 20,
-  },
+  detailSection: { marginBottom: 20 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -256,9 +265,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 15,
   },
-  detailTextContainer: {
-    flex: 1,
-  },
+  detailTextContainer: { flex: 1 },
   detailLabel: {
     fontSize: 14,
     color: colors.textSecondary,
@@ -303,6 +310,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

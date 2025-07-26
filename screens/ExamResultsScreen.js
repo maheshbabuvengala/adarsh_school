@@ -9,95 +9,169 @@ import {
   Platform,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import colors from '../constants/colors';
 
 const ExamResultsScreen = ({ navigation }) => {
-  // Sample exam data
-  const examData = {
-    studentName: "SHANMUKHA PRIVA YAKKATILI",
-    className: "5TH CLASS/A",
-    exams: {
-      unitExams: [
-        {
-          name: "FA-3",
-          total: "148/150",
-          percentage: "98.67",
-          subjects: [
-            { name: "Telugu", marks: "25/25" },
-            { name: "Hindi", marks: "25/25" },
-            { name: "English", marks: "25/25" },
-            { name: "Maths", marks: "24/25" },
-            { name: "Science", marks: "24/25" },
-            { name: "Social", marks: "25/25" },
-          ]
-        },
-        {
-          name: "FA-2",
-          total: "147/150",
-          percentage: "98.00",
-          subjects: [
-            { name: "Telugu", marks: "25/25" },
-            { name: "Hindi", marks: "25/25" },
-            { name: "English", marks: "25/25" },
-            { name: "Maths", marks: "23/25" },
-            { name: "Science", marks: "24/25" },
-            { name: "Social", marks: "25/25" },
-          ]
-        },
-        {
-          name: "FA-1",
-          total: "142/150",
-          percentage: "94.67",
-          subjects: [
-            { name: "Telugu", marks: "23/25" },
-            { name: "Hindi", marks: "24/25" },
-            { name: "English", marks: "25/25" },
-            { name: "Maths", marks: "22/25" },
-            { name: "Science", marks: "24/25" },
-            { name: "Social", marks: "24/25" },
-          ]
-        }
-      ],
-      termExams: [
-        {
-          name: "SA-1",
-          total: "582/600",
-          percentage: "97.00",
-          subjects: [
-            { name: "Telugu", marks: "98/100" },
-            { name: "Hindi", marks: "90/100" },
-            { name: "English", marks: "98/100" },
-            { name: "Maths", marks: "100/100" },
-            { name: "Science", marks: "100/100" },
-            { name: "Social", marks: "96/100" },
-          ]
-        }
-      ]
+  // State for exam data
+  const [examData, setExamData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [studentInfo, setStudentInfo] = useState({
+    studentName: '',
+    className: ''
+  });
+  
+  // Exam type states
+  const [selectedExamType, setSelectedExamType] = useState('U'); // Default to Units
+  const [selectedExam, setSelectedExam] = useState(null);
+
+  // Reset selected exam when exam type changes
+  useEffect(() => {
+    if (examData && examData.data[selectedExamType]?.examMarks) {
+      const exams = Object.values(examData.data[selectedExamType].examMarks);
+      setSelectedExam(exams.length > 0 ? exams[0] : null);
+    } else {
+      setSelectedExam(null);
+    }
+  }, [selectedExamType, examData]);
+// Fetch exam data from API
+useEffect(() => {
+  const fetchExamResults = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get user data from AsyncStorage
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (!userDataString) {
+        throw new Error('User data not found');
+      }
+
+      const userData = JSON.parse(userDataString);
+      const { branch, seqStudentId, userName, className } = userData;
+
+      if (!branch || !seqStudentId) {
+        throw new Error('Branch or Student ID missing');
+      }
+
+      setStudentInfo({
+        studentName: userName || '',
+        className: className || ''
+      });
+
+      // Fetch exam results using fetch
+      const response = await fetch(
+        `https://oxfordjc.com/appservices/studentexamresults.php?branch=${encodeURIComponent(branch)}&examType=S&seqStudentId=${encodeURIComponent(seqStudentId)}`
+      );
+
+      const responseText = await response.text();
+
+      // Check for HTML error response
+      if (responseText.includes('<html')) {
+        throw new Error('Invalid response from server');
+      }
+
+      const data = JSON.parse(responseText);
+
+      if (data) {
+        setExamData(data);
+      } else {
+        throw new Error('No data received from server');
+      }
+    } catch (err) {
+      console.error('Error fetching exam results:', err);
+      setError(err.message || 'Failed to load exam results');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const [selectedExamType, setSelectedExamType] = useState('unitExams');
-  const [selectedExam, setSelectedExam] = useState(0);
+  fetchExamResults();
+}, []);
 
-  // Reset selected exam index when exam type changes
-  useEffect(() => {
-    setSelectedExam(0);
-  }, [selectedExamType]);
-
-  // Get current exam data safely
-  const currentExams = examData.exams[selectedExamType] || [];
-  const currentExam = currentExams[selectedExam] || { subjects: [] };
-
-  const handleExamTypeChange = (type) => {
-    setSelectedExamType(type);
+  // Get exam type display name
+  const getExamTypeName = (type) => {
+    const examTypes = {
+      'S': 'Schedules',
+      'U': 'Units',
+      'T': 'Terms',
+      'C': 'Competitive'
+    };
+    return examTypes[type] || type;
   };
 
-  const handleExamSelect = (index) => {
-    setSelectedExam(index);
+  // Get current exams for selected type
+  const getCurrentExams = () => {
+    if (!examData || !examData.data[selectedExamType]?.examMarks) return [];
+    return Object.values(examData.data[selectedExamType].examMarks);
   };
+
+  // Get subjects for selected exam type
+  const getSubjects = () => {
+    if (!examData || !examData.data[selectedExamType]?.subjects) return {};
+    return examData.data[selectedExamType].subjects;
+  };
+
+  // Render loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading exam results...</Text>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
+          <View style={styles.errorContainer}>
+            <Icon name="alert-circle" size={50} color={colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => {
+                setLoading(true);
+                setError(null);
+                fetchExamResults();
+              }}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  // Render empty state if no data
+  if (!examData) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
+          <View style={styles.emptyContainer}>
+            <Icon name="book-remove" size={50} color={colors.textSecondary} />
+            <Text style={styles.emptyText}>No exam results available</Text>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  const currentExams = getCurrentExams();
+  const subjects = getSubjects();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -108,9 +182,6 @@ const ExamResultsScreen = ({ navigation }) => {
           <TouchableOpacity 
             onPress={() => navigation.goBack()}
             style={styles.backButton}
-            accessible={true}
-            accessibilityLabel="Go back"
-            accessibilityHint="Navigates to previous screen"
           >
             <Icon name="arrow-left" size={24} color="#FFF" />
           </TouchableOpacity>
@@ -122,52 +193,30 @@ const ExamResultsScreen = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.userInfoContainer}>
-            <Text style={styles.schoolName}>English Medium School</Text>
-            <Text style={styles.userName}>Adarsh</Text>
-          </View>
-
           <View style={styles.studentInfoContainer}>
-            <Text style={styles.studentInfoText}>Name: {examData.studentName}</Text>
-            <Text style={styles.studentInfoText}>Class: {examData.className}</Text>
+            <Text style={styles.studentInfoText}>Name: {studentInfo.studentName}</Text>
+            {/* <Text style={styles.studentInfoText}>Class: {studentInfo.className}</Text> */}
           </View>
 
           {/* Exam Type Toggle */}
           <View style={styles.examTypeContainer}>
-            <TouchableOpacity
-              style={[
-                styles.examTypeButton,
-                selectedExamType === 'unitExams' && styles.selectedExamType
-              ]}
-              onPress={() => handleExamTypeChange('unitExams')}
-              accessible={true}
-              accessibilityLabel="Unit exams"
-              accessibilityRole="button"
-            >
-              <Text style={[
-                styles.examTypeText,
-                selectedExamType === 'unitExams' && styles.selectedExamTypeText
-              ]}>
-                Unit Exams
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.examTypeButton,
-                selectedExamType === 'termExams' && styles.selectedExamType
-              ]}
-              onPress={() => handleExamTypeChange('termExams')}
-              accessible={true}
-              accessibilityLabel="Term exams"
-              accessibilityRole="button"
-            >
-              <Text style={[
-                styles.examTypeText,
-                selectedExamType === 'termExams' && styles.selectedExamTypeText
-              ]}>
-                Term Exams
-              </Text>
-            </TouchableOpacity>
+            {Object.entries(examData.examType).map(([type, name]) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.examTypeButton,
+                  selectedExamType === type && styles.selectedExamType
+                ]}
+                onPress={() => setSelectedExamType(type)}
+              >
+                <Text style={[
+                  styles.examTypeText,
+                  selectedExamType === type && styles.selectedExamTypeText
+                ]}>
+                  {name}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Exam List */}
@@ -176,21 +225,23 @@ const ExamResultsScreen = ({ navigation }) => {
               <FlatList
                 horizontal
                 data={currentExams}
-                renderItem={({ item, index }) => (
+                renderItem={({ item }) => (
                   <TouchableOpacity
                     style={[
                       styles.examCard,
-                      selectedExam === index && styles.selectedExamCard
+                      selectedExam?.examName === item.examName && styles.selectedExamCard
                     ]}
-                    onPress={() => handleExamSelect(index)}
-                    accessible={true}
-                    accessibilityLabel={`${item.name} exam results`}
-                    accessibilityHint={`Shows marks for ${item.name} exam`}
+                    onPress={() => setSelectedExam(item)}
                   >
-                    <Text style={styles.examName}>{item.name}</Text>
-                    <Text style={styles.examTotal}>{item.total}</Text>
+                    <Text style={styles.examName}>{item.examName}</Text>
+                    <Text style={styles.examDate}>{item.examDate}</Text>
+                    <Text style={styles.examTotal}>
+                      {item.totalGainedMarks}/{item.totalMaxMarks}
+                    </Text>
                     <Text style={styles.examPercentage}>{item.percentage}%</Text>
-                    <Text style={styles.viewMarksText}>View Marks</Text>
+                    {item.secRank && (
+                      <Text style={styles.examRank}>Rank: {item.secRank}</Text>
+                    )}
                   </TouchableOpacity>
                 )}
                 keyExtractor={(item, index) => index.toString()}
@@ -199,44 +250,56 @@ const ExamResultsScreen = ({ navigation }) => {
               />
             ) : (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No exams available</Text>
+                <Text style={styles.emptyStateText}>No exams available for {getExamTypeName(selectedExamType)}</Text>
               </View>
             )}
           </View>
 
           {/* Subject Marks Table */}
-          {currentExams.length > 0 && currentExam.subjects && currentExam.subjects.length > 0 ? (
+          {selectedExam && selectedExam.subjectMarks && Object.keys(subjects).length > 0 ? (
             <View style={styles.marksTable}>
-              <Text style={styles.tableTitle}>{currentExam.name} Marks</Text>
+              <Text style={styles.tableTitle}>{selectedExam.examName} Marks</Text>
               
               {/* Table Header */}
               <View style={styles.tableHeader}>
                 <Text style={[styles.headerCell, styles.subjectColumn]}>Subject</Text>
                 <Text style={[styles.headerCell, styles.marksColumn]}>Marks</Text>
+                <Text style={[styles.headerCell, styles.statusColumn]}>Status</Text>
               </View>
 
               {/* Table Rows */}
-              {currentExam.subjects.map((subject, index) => (
-                <View 
-                  key={index}
-                  style={[
-                    styles.tableRow,
-                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                    index === currentExam.subjects.length - 1 && styles.lastRow
-                  ]}
-                  accessible={true}
-                  accessibilityLabel={`${subject.name}: ${subject.marks}`}
-                >
-                  <Text style={[styles.tableCell, styles.subjectColumn]}>{subject.name}</Text>
-                  <Text style={[styles.tableCell, styles.marksColumn]}>{subject.marks}</Text>
-                </View>
-              ))}
+              {Object.entries(subjects).map(([subjectId, subjectName], index) => {
+                const subjectMark = selectedExam.subjectMarks[subjectId];
+                if (!subjectMark) return null;
+                
+                return (
+                  <View 
+                    key={subjectId}
+                    style={[
+                      styles.tableRow,
+                      index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                      index === Object.keys(subjects).length - 1 && styles.lastRow
+                    ]}
+                  >
+                    <Text style={[styles.tableCell, styles.subjectColumn]}>{subjectName}</Text>
+                    <Text style={[styles.tableCell, styles.marksColumn]}>
+                      {subjectMark.gainedMarks}/{subjectMark.maxMarks}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.statusColumn]}>
+                      {subjectMark.subStatus === 'P' ? 'Present' : 'Absent'}
+                    </Text>
+                  </View>
+                );
+              })}
 
               {/* Total Row */}
               <View style={[styles.tableRow, styles.totalRow]}>
                 <Text style={[styles.tableCell, styles.subjectColumn, styles.totalText]}>Total</Text>
                 <Text style={[styles.tableCell, styles.marksColumn, styles.totalText]}>
-                  {currentExam.total}
+                  {selectedExam.totalGainedMarks}/{selectedExam.totalMaxMarks}
+                </Text>
+                <Text style={[styles.tableCell, styles.statusColumn, styles.totalText]}>
+                  {selectedExam.percentage}%
                 </Text>
               </View>
             </View>
@@ -288,21 +351,47 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 20,
   },
-  userInfoContainer: {
-    padding: 20,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  schoolName: {
-    fontSize: 18,
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
     color: colors.textPrimary,
-    marginBottom: 5,
-    fontWeight: '600',
   },
-  userName: {
-    fontSize: 24,
-    color: colors.textPrimary,
-    fontWeight: 'bold',
-    marginBottom: 15,
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.danger,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 20,
+    padding: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   studentInfoContainer: {
     backgroundColor: colors.cardBackground,
@@ -315,6 +404,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    marginTop:10
   },
   studentInfoText: {
     fontSize: 16,
@@ -344,7 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   examTypeText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: colors.textPrimary,
   },
@@ -360,7 +450,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   examCard: {
-    width: 150,
+    width: 160,
     backgroundColor: colors.cardBackground,
     borderRadius: 10,
     padding: 15,
@@ -376,15 +466,21 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   examName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: colors.textPrimary,
     marginBottom: 5,
     textAlign: 'center',
   },
-  examTotal: {
-    fontSize: 16,
+  examDate: {
+    fontSize: 12,
     color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  examTotal: {
+    fontSize: 14,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 3,
   },
@@ -393,13 +489,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.primary,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
   },
-  viewMarksText: {
-    fontSize: 14,
-    color: colors.primary,
+  examRank: {
+    fontSize: 12,
+    color: colors.textSecondary,
     textAlign: 'center',
-    textDecorationLine: 'underline',
   },
   marksTable: {
     marginHorizontal: 15,
@@ -436,6 +531,10 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   marksColumn: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  statusColumn: {
     flex: 1,
     textAlign: 'center',
   },

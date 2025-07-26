@@ -1,74 +1,181 @@
-import React from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  Image,
-  Dimensions,
+  TouchableOpacity,
   SafeAreaView,
   StatusBar,
   Platform,
-  TouchableOpacity,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../constants/colors';
+  Image,
+  Dimensions,
+  FlatList,
+  ActivityIndicator,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import colors from "../constants/colors";
 
-const ActivityDetailsScreen = ({ route, navigation }) => {
-  const { activity } = route.params;
+const ActivitiesScreen = ({ navigation }) => {
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const response = await fetch(
+          "https://oxfordjc.com/appservices/allactivities.php?branch=VC"
+        );
+        const data = await response.json();
+
+        const parsedActivities = Object.values(data).map((item) => ({
+          id: item.activityId,
+          title: item.activityName,
+          description: item.subject,
+          date: "", // Optional, since the API doesn't return it
+          type: "general",
+          images: [
+            {
+              uri: item.activityImage.replace(/#/g, "/"),
+            },
+          ],
+          details: item.subject,
+        }));
+
+        setActivities(parsedActivities);
+      } catch (error) {
+        console.error("Error fetching activities:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, []);
+
+  const getIconByType = (type) => {
+    switch (type) {
+      case "science":
+        return "flask";
+      case "quiz":
+        return "help-circle";
+      case "cultural":
+        return "music";
+      default:
+        return "calendar-text";
+    }
+  };
+
+  const getColorByType = (type) => {
+    switch (type) {
+      case "science":
+        return "#4CAF50";
+      case "quiz":
+        return "#2196F3";
+      case "cultural":
+        return "#9C27B0";
+      default:
+        return colors.primary;
+    }
+  };
+
+  const renderActivityCard = ({ item }) => (
+    <TouchableOpacity
+      style={styles.activityCard}
+      onPress={() => navigation.navigate("ActivityDetails", { activity: item })}
+    >
+      <View style={styles.cardHeader}>
+        <View
+          style={[
+            styles.activityIconContainer,
+            { backgroundColor: getColorByType(item.type) },
+          ]}
+        >
+          <Icon name={getIconByType(item.type)} size={24} color="#FFF" />
+        </View>
+        <Text style={styles.activityDate}>{item.date}</Text>
+      </View>
+
+      <Image
+        source={{ uri: item.images[0].uri }}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
+
+      <View style={styles.cardContent}>
+        <Text style={styles.activityTitle}>{item.title}</Text>
+        <Text style={styles.activityDescription}>{item.description}</Text>
+
+        <View style={styles.imageIndicator}>
+          {item.images.map((_, index) => (
+            <View
+              key={index}
+              style={[styles.indicatorDot, index === 0 && styles.activeDot]}
+            />
+          ))}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-      <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
-        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <LinearGradient
+        colors={colors.backgroundGradient}
+        style={styles.gradientBackground}
+      >
+        <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
+
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <Icon name="arrow-left" size={24} color="#FFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Activity Details</Text>
+          <Text style={styles.headerTitle}>School Activities</Text>
           <View style={styles.headerRight} />
         </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.activityHeader}>
-            <Text style={styles.activityTitle}>{activity.title}</Text>
-            <Text style={styles.activityDescription}>{activity.description}</Text>
-            <View style={styles.dateContainer}>
-              <Icon name="calendar" size={16} color={colors.textSecondary} />
-              <Text style={styles.activityDate}>{activity.date}</Text>
+        <View style={styles.container}>
+          <Text style={styles.sectionTitle}>Upcoming Events</Text>
+
+          {loading ? (
+            <View style={styles.emptyState}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.emptyText}>Loading activities...</Text>
             </View>
-          </View>
-
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.galleryContainer}
-          >
-            {activity.images.map((image, index) => (
-              <Image
-                key={index}
-                source={image}
-                style={styles.galleryImage}
-                resizeMode="cover"
-              />
-            ))}
-          </ScrollView>
-
-          <View style={styles.detailsContainer}>
-            <Text style={styles.detailsTitle}>About the Event</Text>
-            <Text style={styles.detailsText}>{activity.details}</Text>
-          </View>
-        </ScrollView>
+          ) : (
+            <FlatList
+              data={activities}
+              renderItem={renderActivityCard}
+              keyExtractor={(item) => item.id.toString()}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Icon
+                    name="calendar-remove"
+                    size={50}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.emptyText}>No upcoming activities</Text>
+                  <Text style={styles.emptySubtext}>
+                    Check back later for scheduled events
+                  </Text>
+                </View>
+              }
+            />
+          )}
+        </View>
       </LinearGradient>
     </SafeAreaView>
   );
 };
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
+const cardWidth = width * 0.9;
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -78,79 +185,130 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: colors.primary,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 0,
   },
   backButton: {
-    padding: 15,
-    marginLeft: -10,
-    marginRight: 10,
+    padding: 10,
   },
   headerTitle: {
-    fontSize: 20,
-    color: '#FFF',
-    fontWeight: 'bold',
+    fontSize: 22,
+    color: "#FFF",
+    fontWeight: "bold",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     marginLeft: -24,
   },
   headerRight: {
     width: 24,
   },
-  scrollContent: {
+  container: {
+    flex: 1,
     paddingHorizontal: 15,
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginBottom: 20,
+    marginLeft: 5,
+  },
+  listContent: {
     paddingBottom: 30,
   },
-  activityHeader: {
-    paddingVertical: 20,
+  activityCard: {
+    width: cardWidth,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    marginBottom: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    overflow: "hidden",
+    alignSelf: "center",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    paddingBottom: 10,
+  },
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activityDate: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  cardImage: {
+    width: "100%",
+    height: 180,
+  },
+  cardContent: {
+    padding: 20,
   },
   activityTitle: {
-    fontSize: 24,
+    fontSize: 20,
     color: colors.textPrimary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   activityDescription: {
-    fontSize: 18,
+    fontSize: 16,
     color: colors.textSecondary,
     marginBottom: 15,
+    lineHeight: 22,
   },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  imageIndicator: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 10,
   },
-  activityDate: {
-    fontSize: 16,
+  indicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: colors.primary,
+    width: 12,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+    minHeight: 300,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: colors.textPrimary,
+    marginTop: 15,
+    textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginLeft: 8,
-  },
-  galleryContainer: {
-    marginVertical: 10,
-  },
-  galleryImage: {
-    width: width * 0.85,
-    height: 250,
-    borderRadius: 12,
-    marginRight: 15,
-  },
-  detailsContainer: {
-    marginTop: 20,
-  },
-  detailsTitle: {
-    fontSize: 20,
-    color: colors.textPrimary,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  detailsText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    lineHeight: 24,
+    marginTop: 5,
+    textAlign: "center",
   },
 });
 
-export default ActivityDetailsScreen;
+export default ActivitiesScreen;

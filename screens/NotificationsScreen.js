@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,94 +8,85 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../constants/colors'; // Make sure this contains necessary color definitions
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import colors from '../constants/colors';
 
 const NotificationsScreen = ({ navigation }) => {
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      date: '24-04-2025',
-      title: 'Summer Vacation Notice',
-      message: 'Dear Parent, Please note that Summer Vacation is from 24-04-2025 (Thursday) to 11-06-2025(Wednesday). School resumes as usual from 12.06.2025 (Thursday).',
-      read: false,
-      important: true
-    },
-    {
-      id: 2,
-      date: '22-04-2025',
-      title: 'Parent-Teacher Meeting',
-      message: 'The next parent-teacher meeting is scheduled for 28-04-2025 from 2:00 PM to 4:30 PM. Please confirm your attendance by replying to this message.',
-      read: true,
-      important: true
-    },
-    {
-      id: 3,
-      date: '20-04-2025',
-      title: 'Sports Day Announcement',
-      message: 'Annual Sports Day will be held on 05-05-2025. Students should come in their sports uniforms. Parents are invited to attend from 9:00 AM onwards.',
-      read: false,
-      important: false
-    },
-    {
-      id: 4,
-      date: '18-04-2025',
-      title: 'Library Book Due Reminder',
-      message: 'This is a reminder that your child has a library book due for return on 25-04-2025. Late returns will incur fines as per school policy.',
-      read: true,
-      important: false
-    },
-    {
-      id: 5,
-      date: '15-04-2025',
-      title: 'School Bus Route Change',
-      message: 'Please note that from 20-04-2025, Bus Route #4 will have a modified schedule. The updated timings have been posted on the school portal.',
-      read: false,
-      important: true
-    },
-    {
-      id: 6,
-      date: '12-04-2025',
-      title: 'Exam Schedule Released',
-      message: 'The term-end examination schedule for all classes is now available on the school website. Please check the dates for your child\'s class.',
-      read: false,
-      important: false
-    },
-    {
-      id: 7,
-      date: '10-04-2025',
-      title: 'Field Trip Permission Slip',
-      message: 'The permission slip for the upcoming science museum field trip is due by 15-04-2025. Please sign and return the form to your child\'s homeroom teacher.',
-      read: true,
-      important: false
-    },
-    {
-      id: 8,
-      date: '08-04-2025',
-      title: 'URGENT: School Closure Tomorrow',
-      message: 'Due to unforeseen circumstances, the school will be closed tomorrow (09-04-2025). All classes will resume on 10-04-2025 as usual.',
-      read: false,
-      important: true
-    },
-    {
-      id: 9,
-      date: '05-04-2025',
-      title: 'After-School Clubs Registration',
-      message: 'Registration for the new term of after-school clubs is now open. Please visit the school portal to view available options and sign up.',
-      read: true,
-      important: false
-    },
-    {
-      id: 10,
-      date: '01-04-2025',
-      title: 'School Uniform Policy Update',
-      message: 'Starting next term, there will be minor updates to the school uniform policy. Please check the attached document for details about the changes.',
-      read: false,
-      important: false
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get user data from AsyncStorage
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (!userDataString) {
+        throw new Error('User data not found');
+      }
+
+      const userData = JSON.parse(userDataString);
+      const { branch, seqStudentId } = userData;
+
+      if (!branch || !seqStudentId) {
+        throw new Error('Branch or Student ID missing');
+      }
+
+      // Fetch notifications from API
+      const response = await fetch(
+        `https://oxfordjc.com/appservices/classcirculars.php?branch=${encodeURIComponent(branch)}&seqStudentId=${encodeURIComponent(seqStudentId)}`
+      );
+
+      // First check if the response is HTML (contains <html> tag)
+      const responseText = await response.text();
+      
+      if (responseText.includes('<html') || responseText.includes('<!DOCTYPE')) {
+        throw new Error('Server returned HTML instead of JSON. Please try again later.');
+      }
+
+      // Try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error('Invalid response format from server');
+      }
+
+      // Check if the response has the expected format
+      if (typeof data !== 'object' || data === null) {
+        throw new Error('Unexpected response format');
+      }
+
+      // Transform the API response to match our notification format
+      const transformedNotifications = Object.entries(data).map(([key, value]) => ({
+        id: key,
+        date: value.circularDate || 'No date',
+        title: 'School Circular',
+        message: value.circular || 'No message',
+        read: false,
+        important: true
+      }));
+
+      setNotifications(transformedNotifications);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
 
   const markAsRead = (id) => {
     setNotifications(notifications.map(notification =>
@@ -106,6 +97,37 @@ const NotificationsScreen = ({ navigation }) => {
   const deleteNotification = (id) => {
     setNotifications(notifications.filter(notification => notification.id !== id));
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
+        <LinearGradient colors={colors.backgroundGradient} style={[styles.gradientBackground, styles.loadingContainer]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading notifications...</Text>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
+        <LinearGradient colors={colors.backgroundGradient} style={[styles.gradientBackground, styles.errorContainer]}>
+          <Icon name="alert-circle" size={50} color={colors.error} />
+          <Text style={styles.errorText}>Error loading notifications</Text>
+          <Text style={styles.errorSubtext}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={fetchNotifications}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -169,8 +191,8 @@ const NotificationsScreen = ({ navigation }) => {
             {notifications.length === 0 && (
               <View style={styles.emptyState}>
                 <Icon name="bell-off" size={50} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>No notifications yet</Text>
-                <Text style={styles.emptySubtext}>You'll see important notices here</Text>
+                <Text style={styles.emptyText}>No notifications found</Text>
+                <Text style={styles.emptySubtext}>You'll see important notices here when available</Text>
               </View>
             )}
           </ScrollView>
@@ -295,6 +317,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: colors.error,
+    marginTop: 15,
+    fontWeight: 'bold',
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: '#FFF',
+    fontSize: 16,
   },
 });
 

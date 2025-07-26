@@ -11,6 +11,7 @@ import ActivitiesScreen from './screens/ActivitiesScreen';
 import ActivityDetailsScreen from './screens/ActivityDetailsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen'
+import FeeDetailsScreen from './screens/FeeDetailsScreen';
 
 const Stack = createStackNavigator();
 
@@ -67,6 +68,11 @@ function App() {
         <Stack.Screen 
           name="ChangePassword" 
           component={ChangePasswordScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="FeeDetails" 
+          component={FeeDetailsScreen} 
           options={{ headerShown: false }} 
         />
       </Stack.Navigator>

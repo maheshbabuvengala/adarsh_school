@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Image,
@@ -12,74 +12,82 @@ import {
   Dimensions,
   Alert,
   ActivityIndicator,
-  StatusBar
-} from 'react-native';
-import { TextInput, Button } from 'react-native-paper';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+  StatusBar,
+} from "react-native";
+import { TextInput, Button } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   widthPercentageToDP as wp,
   heightPercentageToDP as hp,
-} from 'react-native-responsive-screen';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import colors from '../constants/colors';
-
-const TEST_CREDENTIALS = {
-  loginId: '10186',
-  password: 'adarsh'
-};
+} from "react-native-responsive-screen";
+import { LinearGradient } from "expo-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import colors from "../constants/colors";
 
 const LoginScreen = ({ navigation }) => {
-  const [loginId, setLoginId] = useState('');
-  const [password, setPassword] = useState('');
+  const [loginId, setLoginId] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const passwordInputRef = React.useRef(null);
-  
-  const windowWidth = Dimensions.get('window').width;
+
+  const windowWidth = Dimensions.get("window").width;
   const isLargeScreen = windowWidth > 768;
 
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
-        const isLoggedIn = await AsyncStorage.getItem('isLoggedIn');
-        if (isLoggedIn === 'true') {
-          navigation.navigate('Dashboard');
+        const userData = await AsyncStorage.getItem("userData");
+        if (userData) {
+          navigation.navigate("Dashboard");
         }
       } catch (error) {
-        console.error('Error checking login status:', error);
+        console.error("Error checking login status:", error);
       }
     };
-    
+
     checkLoginStatus();
   }, []);
 
   const handleLogin = async () => {
     if (!loginId.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both login ID and password');
+      Alert.alert("Error", "Please enter both login ID and password");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      if (loginId === TEST_CREDENTIALS.loginId && password === TEST_CREDENTIALS.password) {
-        await AsyncStorage.setItem('isLoggedIn', 'true');
-        await AsyncStorage.setItem('userData', JSON.stringify({
-          name: 'Adarsh',
-          school: 'English Medium School'
-        }));
-        
-        navigation.navigate('Dashboard');
+      const response = await fetch(
+        `https://oxfordjc.com/appservices/logincheck.php?loginId=${encodeURIComponent(loginId)}&password=${encodeURIComponent(password)}`
+      );
+
+      const result = await response.json();
+
+      if (result.Status === 1) {
+        // Successful login
+        const userData = {
+          loginId: result.LoginId,
+          userName: result.UserName,
+          seqStudentId: result.seqStudentId,
+          branch: result.branch,
+          isLoggedIn: true,
+        };
+
+        await AsyncStorage.setItem("userData", JSON.stringify(userData));
+        console.log("User data stored:", userData);
+
+        navigation.navigate("Dashboard");
       } else {
-        Alert.alert('Error', 'Invalid login ID or password');
+        Alert.alert("Error", "Invalid login ID or password");
       }
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'Failed to login. Please try again.');
+      console.error("Login error:", error);
+      Alert.alert(
+        "Error",
+        "Failed to login. Please check your internet connection and try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -92,11 +100,6 @@ const LoginScreen = ({ navigation }) => {
         passwordInputRef.current.focus();
       }
     }, 100);
-  };
-
-  const fillTestCredentials = () => {
-    setLoginId(TEST_CREDENTIALS.loginId);
-    setPassword(TEST_CREDENTIALS.password);
   };
 
   return (
@@ -112,35 +115,29 @@ const LoginScreen = ({ navigation }) => {
           contentContainerStyle={[
             styles.scroll,
             isLargeScreen && styles.scrollLarge,
-            Platform.OS === 'web' ? { minHeight: '100vh' } : {}
+            Platform.OS === "web" ? { minHeight: "100vh" } : {},
           ]}
-          style={Platform.OS === 'web' ? { height: '100vh' } : {}}
+          style={Platform.OS === "web" ? { height: "100vh" } : {}}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={[
               styles.innerContainer,
-              isLargeScreen && styles.innerContainerLarge
+              isLargeScreen && styles.innerContainerLarge,
             ]}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? hp('2%') : 0}
+            keyboardVerticalOffset={Platform.OS === "ios" ? hp("2%") : 0}
           >
             <View style={styles.header}>
               <Image
-                source={require('../assets/logo.png')}
-                style={[
-                  styles.logo,
-                  isLargeScreen && styles.logoLarge
-                ]}
+                source={require("../assets/logo.png")}
+                style={[styles.logo, isLargeScreen && styles.logoLarge]}
                 resizeMode="contain"
               />
             </View>
 
-            <View style={[
-              styles.card,
-              isLargeScreen && styles.cardLarge
-            ]}>
+            <View style={[styles.card, isLargeScreen && styles.cardLarge]}>
               <Text style={styles.loginTitle}>Welcome Back!</Text>
               <Text style={styles.loginSubtitle}>Sign in to continue</Text>
 
@@ -151,7 +148,9 @@ const LoginScreen = ({ navigation }) => {
                   value={loginId}
                   onChangeText={setLoginId}
                   style={styles.input}
-                  left={<TextInput.Icon icon="account" color={colors.inputIcon} />}
+                  left={
+                    <TextInput.Icon icon="account" color={colors.inputIcon} />
+                  }
                   theme={{
                     colors: {
                       primary: colors.primary,
@@ -173,7 +172,7 @@ const LoginScreen = ({ navigation }) => {
                   left={<TextInput.Icon icon="lock" color={colors.inputIcon} />}
                   right={
                     <TextInput.Icon
-                      icon={showPassword ? 'eye-off' : 'eye'}
+                      icon={showPassword ? "eye-off" : "eye"}
                       color={colors.inputIcon}
                       onPress={togglePasswordVisibility}
                     />
@@ -191,9 +190,9 @@ const LoginScreen = ({ navigation }) => {
               </View>
 
               {isLoading ? (
-                <ActivityIndicator 
-                  size="large" 
-                  color={colors.primary} 
+                <ActivityIndicator
+                  size="large"
+                  color={colors.primary}
                   style={styles.loadingIndicator}
                 />
               ) : (
@@ -213,44 +212,65 @@ const LoginScreen = ({ navigation }) => {
                   Login
                 </Button>
               )}
-
-              {__DEV__ && (
-                <TouchableOpacity 
-                  onPress={fillTestCredentials}
-                  style={styles.testCredentialsButton}
-                >
-                  <Text style={styles.testCredentialsText}>Use Test Credentials</Text>
-                </TouchableOpacity>
-              )}
             </View>
 
-            <View style={[
-              styles.contactContainer,
-              isLargeScreen && styles.contactContainerLarge
-            ]}>
-              <View style={[
-                styles.contactRow,
-                isLargeScreen && styles.contactRowLarge
-              ]}>
+            <View
+              style={[
+                styles.contactContainer,
+                isLargeScreen && styles.contactContainerLarge,
+              ]}
+            >
+              <View
+                style={[
+                  styles.contactRow,
+                  isLargeScreen && styles.contactRowLarge,
+                ]}
+              >
                 <View style={styles.contactItem}>
-                  <Icon name="phone" size={hp('2.5%')} color={colors.primary} style={styles.contactIcon} />
+                  <Icon
+                    name="phone"
+                    size={hp("2.5%")}
+                    color={colors.primary}
+                    style={styles.contactIcon}
+                  />
                   <Text style={styles.contactText}>9299997557</Text>
                 </View>
                 <View style={styles.contactItem}>
-                  <Icon name="email" size={hp('2.5%')} color={colors.primary} style={styles.contactIcon} />
-                  <Text style={styles.contactText}>adarsh.tenali@gmail.com</Text>
+                  <Icon
+                    name="email"
+                    size={hp("2.5%")}
+                    color={colors.primary}
+                    style={styles.contactIcon}
+                  />
+                  <Text style={styles.contactText}>
+                    adarsh.tenali@gmail.com
+                  </Text>
                 </View>
                 <View style={styles.contactItem}>
-                  <Icon name="map-marker" size={hp('2.5%')} color={colors.primary} style={styles.contactIcon} />
+                  <Icon
+                    name="map-marker"
+                    size={hp("2.5%")}
+                    color={colors.primary}
+                    style={styles.contactIcon}
+                  />
                   <Text style={styles.contactText}>Tenali, AP</Text>
                 </View>
               </View>
 
               <TouchableOpacity
-                onPress={() => Linking.openURL('https://adarshemschool.com/stulogin2024/privacy_policy.php')}
+                onPress={() =>
+                  Linking.openURL(
+                    "https://adarshemschool.com/stulogin2024/privacy_policy.php"
+                  )
+                }
                 style={styles.privacyButton}
               >
-                <Icon name="shield-lock" size={hp('2.2%')} color={colors.primary} style={styles.privacyIcon} />
+                <Icon
+                  name="shield-lock"
+                  size={hp("2.2%")}
+                  color={colors.primary}
+                  style={styles.privacyIcon}
+                />
                 <Text style={styles.privacyText}>Privacy Policy</Text>
               </TouchableOpacity>
             </View>
@@ -258,7 +278,7 @@ const LoginScreen = ({ navigation }) => {
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
-  );
+  )
 };
 
 const styles = StyleSheet.create({
@@ -266,49 +286,49 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: hp('2%'),
-    paddingBottom: hp('4%'),
+    justifyContent: "center",
+    paddingVertical: hp("2%"),
+    paddingBottom: hp("4%"),
   },
   scrollLarge: {
     maxWidth: 500,
-    marginHorizontal: 'auto',
+    marginHorizontal: "auto",
     paddingTop: 40,
     paddingBottom: 40,
   },
   innerContainer: {
-    width: '90%',
+    width: "90%",
     maxWidth: 400,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   innerContainerLarge: {
     maxWidth: 450,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: hp('3%'),
+    alignItems: "center",
+    marginBottom: hp("3%"),
   },
   logo: {
-    width: wp('80%'),
-    height: hp('18%'),
-    marginBottom: hp('0.3%'),
+    width: wp("80%"),
+    height: hp("18%"),
+    marginBottom: hp("0.3%"),
   },
   logoLarge: {
-    width: wp('60%'),
-    height: hp('13%'),
-    marginBottom: hp('0.3%'),
+    width: wp("60%"),
+    height: hp("13%"),
+    marginBottom: hp("0.3%"),
   },
   card: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
-    paddingHorizontal: wp('6%'),
-    paddingVertical: hp('3.5%'),
+    paddingHorizontal: wp("6%"),
+    paddingVertical: hp("3.5%"),
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
-    marginBottom: hp('3%'),
+    marginBottom: hp("3%"),
   },
   cardLarge: {
     maxWidth: 450,
@@ -316,32 +336,32 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   loginTitle: {
-    fontSize: hp('3.2%'),
-    fontFamily: 'Roboto-Bold',
-    textAlign: 'center',
+    fontSize: hp("3.2%"),
+    fontFamily: "Roboto-Bold",
+    textAlign: "center",
     color: colors.textPrimary,
-    marginBottom: hp('0.5%'),
+    marginBottom: hp("0.5%"),
   },
   loginSubtitle: {
-    fontSize: hp('1.9%'),
-    fontFamily: 'Roboto-Regular',
-    textAlign: 'center',
+    fontSize: hp("1.9%"),
+    fontFamily: "Roboto-Regular",
+    textAlign: "center",
     color: colors.textSecondary,
-    marginBottom: hp('3%'),
+    marginBottom: hp("3%"),
   },
   inputContainer: {
-    marginBottom: hp('1%'),
+    marginBottom: hp("1%"),
   },
   input: {
-    marginBottom: hp('2%'),
+    marginBottom: hp("2%"),
     backgroundColor: colors.inputBackground,
-    fontSize: hp('1.9%'),
-    fontFamily: 'Roboto-Regular',
+    fontSize: hp("1.9%"),
+    fontFamily: "Roboto-Regular",
   },
   loginButton: {
-    marginTop: hp('1%'),
+    marginTop: hp("1%"),
     borderRadius: 10,
-    paddingVertical: hp('0.8%'),
+    paddingVertical: hp("0.8%"),
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -349,32 +369,23 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   loginButtonText: {
-    fontSize: hp('2.1%'),
-    fontFamily: 'Roboto-Medium',
+    fontSize: hp("2.1%"),
+    fontFamily: "Roboto-Medium",
     letterSpacing: 0.5,
     color: colors.buttonText,
   },
   loginButtonContent: {
-    height: hp('5.5%'),
+    height: hp("5.5%"),
   },
   loadingIndicator: {
-    marginTop: hp('3%'),
-    marginBottom: hp('1%'),
-  },
-  testCredentialsButton: {
-    marginTop: hp('2%'),
-    alignSelf: 'center',
-  },
-  testCredentialsText: {
-    color: colors.primary,
-    fontSize: hp('1.6%'),
-    textDecorationLine: 'underline',
+    marginTop: hp("3%"),
+    marginBottom: hp("1%"),
   },
   contactContainer: {
     backgroundColor: colors.cardBackground,
     borderRadius: 16,
-    paddingHorizontal: wp('5%'),
-    paddingVertical: hp('3%'),
+    paddingHorizontal: wp("5%"),
+    paddingVertical: hp("3%"),
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
@@ -385,57 +396,57 @@ const styles = StyleSheet.create({
     maxWidth: 450,
   },
   contactRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: wp('2%'),
-    marginBottom: hp('1.5%'),
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: wp("2%"),
+    marginBottom: hp("1.5%"),
   },
   contactRowLarge: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 20,
   },
   contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flexShrink: 1,
-    minWidth: '45%',
+    minWidth: "45%",
     flexGrow: 1,
-    paddingVertical: hp('1%'),
-    paddingHorizontal: wp('3%'),
+    paddingVertical: hp("1%"),
+    paddingHorizontal: wp("3%"),
     backgroundColor: colors.contactBackground,
     borderRadius: 10,
-    minHeight: hp('5%'),
+    minHeight: hp("5%"),
   },
   contactIcon: {
-    marginRight: wp('2%'),
+    marginRight: wp("2%"),
   },
   contactText: {
-    fontSize: hp('1.8%'),
-    fontFamily: 'Roboto-Regular',
+    fontSize: hp("1.8%"),
+    fontFamily: "Roboto-Regular",
     color: colors.textTertiary,
     flexShrink: 1,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   },
   privacyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: hp('2%'),
-    paddingVertical: hp('1%'),
-    paddingHorizontal: wp('6%'),
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: hp("2%"),
+    paddingVertical: hp("1%"),
+    paddingHorizontal: wp("6%"),
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.primary,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   privacyIcon: {
-    marginRight: wp('1%'),
+    marginRight: wp("1%"),
   },
   privacyText: {
     color: colors.primary,
-    fontFamily: 'Roboto-Medium',
-    fontSize: hp('1.8%'),
+    fontFamily: "Roboto-Medium",
+    fontSize: hp("1.8%"),
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,49 +10,122 @@ import {
   TouchableOpacity,
   Modal,
   TouchableWithoutFeedback,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors from '../constants/colors';
 
 const AttendanceScreen = ({ navigation }) => {
-  // Sample attendance data for multiple months
-  const allAttendanceData = [
-    { date: '01-05-2024 (Wednesday)', status: 'Present', month: 'May' },
-    { date: '02-05-2024 (Thursday)', status: 'Present', month: 'May' },
-    { date: '03-05-2024 (Friday)', status: '', month: 'May' },
-    { date: '04-05-2024 (Saturday)', status: '', month: 'May' },
-    { date: '05-05-2024 (Sunday)', status: '', month: 'May' },
-    { date: '06-05-2024 (Monday)', status: 'Present', month: 'May' },
-    { date: '01-06-2024 (Saturday)', status: '', month: 'June' },
-    { date: '02-06-2024 (Sunday)', status: '', month: 'June' },
-    { date: '03-06-2024 (Monday)', status: '', month: 'June' },
-    { date: '04-06-2024 (Tuesday)', status: '', month: 'June' },
-    { date: '05-06-2024 (Wednesday)', status: '', month: 'June' },
-    { date: '06-06-2024 (Thursday)', status: '', month: 'June' },
-    { date: '07-06-2024 (Friday)', status: '', month: 'June' },
-    { date: '08-06-2024 (Saturday)', status: '', month: 'June' },
-    { date: '09-06-2024 (Sunday)', status: '', month: 'June' },
-    { date: '10-06-2024 (Monday)', status: '', month: 'June' },
-    { date: '11-06-2024 (Tuesday)', status: '', month: 'June' },
-    { date: '12-06-2024 (Wednesday)', status: '', month: 'June' },
-    { date: '13-06-2024 (Thursday)', status: 'Present', month: 'June' },
-    { date: '14-06-2024 (Friday)', status: 'Present', month: 'June' },
+  const [attendanceData, setAttendanceData] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toLocaleString('default', { month: 'long' }));
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [seqStudentId, setSeqStudentId] = useState(null);
+  const [branch, setBranch] = useState(null);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [shifts, setShifts] = useState({});
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Get unique months from data
-  const availableMonths = [...new Set(allAttendanceData.map(item => item.month))];
-  
-  // State for selected month and modal visibility
-  const [selectedMonth, setSelectedMonth] = useState('June');
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userDataString = await AsyncStorage.getItem('userData');
+        if (!userDataString) throw new Error('User data not found');
+        const userData = JSON.parse(userDataString);
+        if (!userData.branch || !userData.seqStudentId) {
+          throw new Error('Branch or Student ID missing');
+        }
 
-  // Filter data by selected month
-  const filteredData = allAttendanceData.filter(item => item.month === selectedMonth);
+        setSeqStudentId(userData.seqStudentId);
+        setBranch(userData.branch);
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        Alert.alert('Error', error.message || 'Failed to load user data');
+      }
+    };
 
-  // Calculate attendance summary
+    fetchUserData();
+  }, []);
+
+  useEffect(() => {
+    if (seqStudentId && branch) {
+      fetchAttendanceData();
+    }
+  }, [seqStudentId, branch, selectedMonth]);
+
+  const fetchAttendanceData = async () => {
+    setIsLoading(true);
+    try {
+      const monthNumber = months.indexOf(selectedMonth) + 1;
+      const monthVal = monthNumber.toString().padStart(2, '0');
+
+      const response = await fetch(
+        `https://oxfordjc.com/appservices/studentmonthattendance.php?monthVal=${monthVal}&seqStudentId=${encodeURIComponent(seqStudentId)}&branch=${encodeURIComponent(branch)}`
+      );
+
+      const responseText = await response.text();
+      console.log('API Response:', responseText);
+
+      if (responseText.includes('<html') || responseText.includes('<!DOCTYPE')) {
+        throw new Error('Server returned HTML instead of JSON. Please try again later.');
+      }
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error('JSON Parse Error:', e);
+        throw new Error('Invalid server response format');
+      }
+
+      if (!result.data) {
+        throw new Error('No attendance data found');
+      }
+
+      let parsedShifts = {};
+      if (result.shifts) {
+        parsedShifts = result.shifts;
+        setShifts(parsedShifts);
+      }
+
+      const transformedData = Object.entries(result.data).map(([date, shiftData]) => {
+        const dateObj = new Date(date.split('-').reverse().join('-'));
+        const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+
+        return {
+          date: `${date} (${dayName})`,
+          shifts: Object.entries(shiftData).map(([shiftCode, status]) => ({
+            code: shiftCode,
+            name: parsedShifts[shiftCode] || shiftCode,
+            status: status === 'P' ? 'Present' : status === 'A' ? 'Absent' : 'Not Marked'
+          })),
+          month: selectedMonth
+        };
+      });
+
+      setAttendanceData(transformedData);
+      setAvailableMonths([selectedMonth]);
+    } catch (error) {
+      console.error('API Error:', error);
+      Alert.alert('Error', error.message || 'Failed to fetch attendance data. Please check your connection.');
+      setAttendanceData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredData = attendanceData.filter(item => item.month === selectedMonth);
   const totalDays = filteredData.length;
-  const presentDays = filteredData.filter(item => item.status === 'Present').length;
+  const presentDays = filteredData.reduce((count, day) => {
+    return count + (day.shifts.some(shift => shift.status === 'Present') ? 1 : 0);
+  }, 0);
   const attendancePercentage = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
   return (
@@ -61,82 +134,95 @@ const AttendanceScreen = ({ navigation }) => {
         <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
 
         <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-left" size={24} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Attendance Report</Text>
           <View style={styles.headerRight} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.userInfoContainer}>
-            {/* Month Filter */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.monthFilterContainer}
               onPress={() => setShowMonthPicker(true)}
             >
               <Text style={styles.monthFilterText}>{selectedMonth}</Text>
               <Icon name="chevron-down" size={20} color={colors.primary} />
             </TouchableOpacity>
-            
-            {/* Attendance Summary */}
-            <View style={styles.summaryContainer}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{presentDays}</Text>
-                <Text style={styles.summaryLabel}>Present</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{totalDays - presentDays}</Text>
-                <Text style={styles.summaryLabel}>Absent</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{totalDays}</Text>
-                <Text style={styles.summaryLabel}>Total Days</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{attendancePercentage}%</Text>
-                <Text style={styles.summaryLabel}>Percentage</Text>
-              </View>
-            </View>
-          </View>
 
-          <View style={styles.attendanceTable}>
-            {/* Table Header */}
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeader, styles.dateColumn]}>Date/Shift</Text>
-              <Text style={[styles.tableHeader, styles.statusColumn]}>MS</Text>
-            </View>
+            {isLoading ? (
+              <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />
+            ) : (
+              <>
+                <View style={styles.summaryContainer}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{presentDays}</Text>
+                    <Text style={styles.summaryLabel}>Present</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{totalDays - presentDays}</Text>
+                    <Text style={styles.summaryLabel}>Absent</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{totalDays}</Text>
+                    <Text style={styles.summaryLabel}>Total Days</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryValue}>{attendancePercentage}%</Text>
+                    <Text style={styles.summaryLabel}>Percentage</Text>
+                  </View>
+                </View>
 
-            {/* Table Rows */}
-            {filteredData.map((item, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.tableRow,
-                  index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                  index === filteredData.length - 1 && styles.lastRow
-                ]}
-              >
-                <Text style={[styles.tableCell, styles.dateColumn]}>{item.date}</Text>
-                <Text style={[
-                  styles.tableCell, 
-                  styles.statusColumn,
-                  item.status === 'Present' ? styles.presentStatus : styles.absentStatus
-                ]}>
-                  {item.status}
-                </Text>
-              </View>
-            ))}
+                {Object.keys(shifts).length > 0 && (
+                  <View style={styles.attendanceTable}>
+                    <View style={styles.tableHeaderRow}>
+                      <Text style={[styles.tableHeader, styles.dateColumn]}>Date</Text>
+                      {Object.entries(shifts).map(([code, name]) => (
+                        <Text key={code} style={[styles.tableHeader, styles.shiftColumn]}>
+                          {name}
+                        </Text>
+                      ))}
+                    </View>
+
+                    {filteredData.length > 0 ? (
+                      filteredData.map((item, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.tableRow,
+                            index % 2 === 0 ? styles.evenRow : styles.oddRow,
+                            index === filteredData.length - 1 && styles.lastRow
+                          ]}
+                        >
+                          <Text style={[styles.tableCell, styles.dateColumn]}>{item.date}</Text>
+                          {item.shifts.map((shift, shiftIndex) => (
+                            <Text
+                              key={shiftIndex}
+                              style={[
+                                styles.tableCell,
+                                styles.shiftColumn,
+                                shift.status === 'Present' ? styles.presentStatus :
+                                shift.status === 'Absent' ? styles.absentStatus : styles.notMarkedStatus
+                              ]}
+                            >
+                              {shift.status}
+                            </Text>
+                          ))}
+                        </View>
+                      ))
+                    ) : (
+                      <View style={styles.noDataContainer}>
+                        <Text style={styles.noDataText}>No attendance data available</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </>
+            )}
           </View>
         </ScrollView>
 
-        {/* Month Picker Modal */}
         <Modal
           visible={showMonthPicker}
           transparent={true}
@@ -146,7 +232,7 @@ const AttendanceScreen = ({ navigation }) => {
           <TouchableWithoutFeedback onPress={() => setShowMonthPicker(false)}>
             <View style={styles.modalOverlay}>
               <View style={styles.monthPickerContainer}>
-                {availableMonths.map((month, index) => (
+                {months.map((month, index) => (
                   <TouchableOpacity
                     key={index}
                     style={[
@@ -158,7 +244,7 @@ const AttendanceScreen = ({ navigation }) => {
                       setShowMonthPicker(false);
                     }}
                   >
-                    <Text 
+                    <Text
                       style={[
                         styles.monthItemText,
                         month === selectedMonth && styles.selectedMonthText
@@ -218,18 +304,6 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-  schoolName: {
-    fontSize: 18,
-    color: colors.textPrimary,
-    marginBottom: 5,
-    fontWeight: '600',
-  },
-  userName: {
-    fontSize: 24,
-    color: colors.textPrimary,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
   monthFilterContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -263,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBackground,
     borderRadius: 10,
     padding: 12,
-    minWidth: 70,
+    minWidth: 60,
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -271,12 +345,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   summaryValue: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: 'bold',
     color: colors.primary,
   },
   summaryLabel: {
-    fontSize: 14,
+    fontSize: 11,
     color: colors.textSecondary,
     marginTop: 5,
   },
@@ -290,6 +364,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    minHeight: 100,
   },
   tableHeaderRow: {
     flexDirection: 'row',
@@ -299,6 +374,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    width:"100%"
   },
   evenRow: {
     backgroundColor: colors.cardBackground,
@@ -323,16 +399,20 @@ const styles = StyleSheet.create({
     flex: 2,
     color: colors.textPrimary,
   },
-  statusColumn: {
+  shiftColumn: {
     flex: 1,
     textAlign: 'center',
     fontWeight: '500',
   },
   presentStatus: {
-    color: '#4CAF50', // Green for present
+    color: '#4CAF50',
   },
   absentStatus: {
+    color: '#F44336',
+  },
+  notMarkedStatus: {
     color: colors.textSecondary,
+    fontStyle: 'italic',
   },
   modalOverlay: {
     flex: 1,
@@ -363,6 +443,18 @@ const styles = StyleSheet.create({
   selectedMonthText: {
     color: colors.primary,
     fontWeight: 'bold',
+  },
+  loadingIndicator: {
+    marginVertical: 20,
+  },
+  noDataContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noDataText: {
+    fontSize: 16,
+    color: colors.textSecondary,
   },
 });
 
