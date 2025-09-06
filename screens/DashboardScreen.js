@@ -27,6 +27,9 @@ const DashboardScreen = ({ navigation }) => {
     upcomingActivities: 2,
     feeDue: 0,
   });
+  const [branchData, setBranchData] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [activities, setActivities] = useState([]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -160,7 +163,57 @@ const DashboardScreen = ({ navigation }) => {
 
   const navigateToScreen = (item) => {
     if (item.action) item.action();
-    else if (item.screen) navigation.navigate(item.screen);
+    else if (item.screen) {
+      navigation.navigate(item.screen, item.params || {});
+    }
+  };
+
+  // Function to render the latest notification preview
+  const renderLatestNotification = () => {
+    if (notifications.length === 0) return null;
+
+    const latest = notifications[0];
+    return (
+      <TouchableOpacity
+        style={styles.notificationPreview}
+        onPress={() => navigation.navigate("Notifications", { notifications })}
+      >
+        <View style={styles.notificationHeader}>
+          <Icon name="bell" size={16} color={colors.primary} />
+          <Text style={styles.notificationTitle}>Latest Notification</Text>
+          <Text style={styles.notificationDate}>{latest.Date}</Text>
+        </View>
+        <Text
+          style={styles.notificationMessage}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {latest.Message}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Function to render upcoming activity
+  const renderUpcomingActivity = () => {
+    if (activities.length === 0) return null;
+
+    const activity = activities[0];
+    return (
+      <TouchableOpacity
+        style={styles.activityPreview}
+        onPress={() => navigation.navigate("Activities", { activities })}
+      >
+        <View style={styles.activityHeader}>
+          <Icon name="calendar-text" size={16} color={colors.primary} />
+          <Text style={styles.activityTitle}>Upcoming Activity</Text>
+        </View>
+        <Text style={styles.activityName}>{activity.activityName}</Text>
+        {activity.subject && (
+          <Text style={styles.activitySubject}>{activity.subject}</Text>
+        )}
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -198,6 +251,9 @@ const DashboardScreen = ({ navigation }) => {
             keyboardShouldPersistTaps="handled"
             style={Platform.OS === "web" ? { height: "100vh" } : {}}
           >
+            {renderLatestNotification()}
+            {renderUpcomingActivity()}
+
             <View style={styles.quickAccessContainer}>
               <Text style={styles.sectionTitle}>Quick Access</Text>
               <View style={styles.quickAccessGrid}>
@@ -241,7 +297,7 @@ const DashboardScreen = ({ navigation }) => {
                         <Text style={styles.menuText}>{item.name}</Text>
                       </View>
                       <View style={styles.menuRightContent}>
-                        {item.count && (
+                        {item.count && item.count > 0 && (
                           <View style={styles.badge}>
                             <Text style={styles.badgeText}>{item.count}</Text>
                           </View>
@@ -319,8 +375,75 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 20,
   },
+  notificationPreview: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 15,
+    marginHorizontal: 15,
+    marginTop: 15,
+    marginBottom: 10,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  notificationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  notificationTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginLeft: 8,
+    flex: 1,
+  },
+  notificationDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  notificationMessage: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
+  activityPreview: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 15,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  activityHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginLeft: 8,
+  },
+  activityName: {
+    fontSize: 15,
+    color: colors.textPrimary,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  activitySubject: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   quickAccessContainer: {
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 10,
   },
   quickAccessGrid: {
