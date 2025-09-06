@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,18 +10,20 @@ import {
   StatusBar,
   Platform,
   Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import colors from '../constants/colors';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import colors from "../constants/colors";
+import schoolConfig from "../config/schoolConfig";
+import logo from "../assets/logo.png";
 
 const DashboardScreen = ({ navigation }) => {
   const [userData, setUserData] = useState({
-    name: '',
-    school: '',
+    name: "",
+    school: "",
     notifications: 3,
-    attendance: '85%',
+    attendance: "85%",
     upcomingActivities: 2,
     feeDue: 0,
   });
@@ -29,31 +31,28 @@ const DashboardScreen = ({ navigation }) => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const storedData = await AsyncStorage.getItem('userData');
+        const storedData = await AsyncStorage.getItem("userData");
         if (storedData) {
           const parsedData = JSON.parse(storedData);
-
-          // Update your state with data from storage
-          setUserData(prev => ({
+          setUserData((prev) => ({
             ...prev,
-            name: parsedData.userName || '',
-            school: parsedData.branch || '',
+            name: parsedData.userName || "",
+            school: parsedData.branch || "",
           }));
 
-          // Fetch fee data if student ID and branch are available
           if (parsedData.seqStudentId && parsedData.branch) {
             const feeResponse = await fetch(
               `https://oxfordjc.com/appservices/studentfees.php?branch=${parsedData.branch}&seqStudentId=${parsedData.seqStudentId}`
             );
             const feeData = await feeResponse.json();
-            setUserData(prev => ({
+            setUserData((prev) => ({
               ...prev,
-              feeDue: feeData.Total?.Due || 0
+              feeDue: feeData.Total?.Due || 0,
             }));
           }
         }
       } catch (error) {
-        console.error('Failed to load user data from AsyncStorage:', error);
+        console.error("Failed to load user data from AsyncStorage:", error);
       }
     };
 
@@ -62,51 +61,100 @@ const DashboardScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('isLoggedIn');
-      await AsyncStorage.removeItem('userData');
-      navigation.navigate('Login');
+      await AsyncStorage.removeItem("isLoggedIn");
+      await AsyncStorage.removeItem("userData");
+      navigation.navigate("Info");
     } catch (error) {
-      Alert.alert('Error', 'Failed to logout.');
+      Alert.alert("Error", "Failed to logout.");
     }
   };
 
   const quickAccessItems = [
-    { icon: 'bell', name: 'Notifications', screen: 'Notifications' },
-    { icon: 'calendar-text', name: 'Activities', screen: 'Activities' },
-    { icon: 'calendar-check', name: 'Attendance', screen: 'Attendance' },
-    { icon: 'cash', name: 'Fee Details', screen: 'FeeDetails' },
-  ];
+    schoolConfig.NotificationsScreen && {
+      icon: "bell",
+      name: "Notifications",
+      screen: "Notifications",
+    },
+    schoolConfig.ActivitiesScreen && {
+      icon: "calendar-text",
+      name: "Activities",
+      screen: "Activities",
+    },
+    schoolConfig.AttendanceScreen && {
+      icon: "calendar-check",
+      name: "Attendance",
+      screen: "Attendance",
+    },
+    schoolConfig.FeeDetailsScreen && {
+      icon: "cash",
+      name: "Fee Details",
+      screen: "FeeDetails",
+    },
+  ].filter(Boolean);
 
   const categorizedMenu = [
     {
-      title: 'Academics',
+      title: "Academics",
       items: [
-        { icon: 'calendar-check', name: 'Attendance', screen: 'Attendance', value: userData.attendance },
-        { icon: 'book-open', name: 'Exam Syllabus', screen: 'ExamSyllabus' },
-        { icon: 'clipboard-text', name: 'Exam Results', screen: 'ExamResults' },
-        { icon: 'calendar-text', name: 'Activities', screen: 'Activities', count: userData.upcomingActivities },
-      ],
+        schoolConfig.AttendanceScreen && {
+          icon: "calendar-check",
+          name: "Attendance",
+          screen: "Attendance",
+          value: userData.attendance,
+        },
+        schoolConfig.ExamSyllabusScreen && {
+          icon: "book-open",
+          name: "Exam Syllabus",
+          screen: "ExamSyllabus",
+        },
+        schoolConfig.ExamResultsScreen && {
+          icon: "clipboard-text",
+          name: "Exam Results",
+          screen: "ExamResults",
+        },
+        schoolConfig.ActivitiesScreen && {
+          icon: "calendar-text",
+          name: "Activities",
+          screen: "Activities",
+          count: userData.upcomingActivities,
+        },
+      ].filter(Boolean),
     },
     {
-      title: 'Finance',
+      title: "Finance",
       items: [
-        { icon: 'cash', name: 'Fee Details', screen: 'FeeDetails', badge: userData.feeDue > 0 },
-       
-      ],
+        schoolConfig.FeeDetailsScreen && {
+          icon: "cash",
+          name: "Fee Details",
+          screen: "FeeDetails",
+          badge: userData.feeDue > 0,
+        },
+      ].filter(Boolean),
     },
     {
-      title: 'Account',
+      title: "Account",
       items: [
-        { icon: 'bell', name: 'Notifications', screen: 'Notifications', count: userData.notifications },
-        { icon: 'account', name: 'My Profile', screen: 'Profile' },
-        { icon: 'lock-reset', name: 'Change Password', screen: 'ChangePassword' },
-      ],
+        schoolConfig.NotificationsScreen && {
+          icon: "bell",
+          name: "Notifications",
+          screen: "Notifications",
+          count: userData.notifications,
+        },
+        schoolConfig.ProfileScreen && {
+          icon: "account",
+          name: "My Profile",
+          screen: "Profile",
+        },
+        schoolConfig.ChangePasswordScreen && {
+          icon: "lock-reset",
+          name: "Change Password",
+          screen: "ChangePassword",
+        },
+      ].filter(Boolean),
     },
     {
-      title: 'System',
-      items: [
-        { icon: 'logout', name: 'Logout', action: handleLogout },
-      ],
+      title: "System",
+      items: [{ icon: "logout", name: "Logout", action: handleLogout }],
     },
   ];
 
@@ -117,26 +165,30 @@ const DashboardScreen = ({ navigation }) => {
 
   return (
     <View style={styles.outerContainer}>
-      <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
+      <LinearGradient
+        colors={colors.backgroundGradient}
+        style={styles.gradientBackground}
+      >
         <SafeAreaView style={styles.safeArea}>
-          <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
+          <StatusBar
+            backgroundColor={colors.primary}
+            barStyle="light-content"
+          />
 
-          <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
+          <View
+            style={[
+              styles.header,
+              {
+                paddingTop:
+                  Platform.OS === "android" ? StatusBar.currentHeight : 0,
+              },
+            ]}
+          >
             <View style={styles.userDetails}>
               <Text style={styles.userName}>Welcome, {userData.name}</Text>
-              {/* {userData.feeDue > 0 && (
-                <View style={styles.feeAlert}>
-                  <Icon name="alert-circle" size={16} color="#FFF" />
-                  <Text style={styles.feeAlertText}>Fee Due: ₹{userData.feeDue}</Text>
-                </View>
-              )} */}
             </View>
             <View style={styles.logoWrapper}>
-              <Image
-                source={require('../assets/logo.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
             </View>
           </View>
 
@@ -144,7 +196,7 @@ const DashboardScreen = ({ navigation }) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
-            style={Platform.OS === 'web' ? { height: '100vh' } : {}}
+            style={Platform.OS === "web" ? { height: "100vh" } : {}}
           >
             <View style={styles.quickAccessContainer}>
               <Text style={styles.sectionTitle}>Quick Access</Text>
@@ -159,7 +211,7 @@ const DashboardScreen = ({ navigation }) => {
                       <Icon name={item.icon} size={24} color={colors.primary} />
                     </View>
                     <Text style={styles.quickAccessText}>{item.name}</Text>
-                    {item.name === 'Fee Details' && userData.feeDue > 0 && (
+                    {item.name === "Fee Details" && userData.feeDue > 0 && (
                       <View style={styles.quickAccessBadge}>
                         <Text style={styles.quickAccessBadgeText}>!</Text>
                       </View>
@@ -180,7 +232,12 @@ const DashboardScreen = ({ navigation }) => {
                       onPress={() => navigateToScreen(item)}
                     >
                       <View style={styles.menuItemContent}>
-                        <Icon name={item.icon} size={20} color={colors.primary} style={styles.menuIcon} />
+                        <Icon
+                          name={item.icon}
+                          size={20}
+                          color={colors.primary}
+                          style={styles.menuIcon}
+                        />
                         <Text style={styles.menuText}>{item.name}</Text>
                       </View>
                       <View style={styles.menuRightContent}>
@@ -197,7 +254,11 @@ const DashboardScreen = ({ navigation }) => {
                             <Text style={styles.badgeText}>!</Text>
                           </View>
                         )}
-                        <Icon name="chevron-right" size={20} color={colors.textSecondary} />
+                        <Icon
+                          name="chevron-right"
+                          size={20}
+                          color={colors.textSecondary}
+                        />
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -218,9 +279,9 @@ const styles = StyleSheet.create({
   gradientBackground: { flex: 1 },
   safeArea: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: colors.primary,
@@ -228,32 +289,18 @@ const styles = StyleSheet.create({
   userDetails: { flex: 1 },
   userName: {
     fontSize: 20,
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: "#FFF",
+    fontWeight: "bold",
     marginBottom: 5,
-  },
-  feeAlert: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warning,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    alignSelf: 'flex-start',
-  },
-  feeAlertText: {
-    fontSize: 14,
-    color: '#FFF',
-    marginLeft: 5,
   },
   logoWrapper: {
     width: 100,
     height: 50,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
     marginTop: 15,
   },
   logo: {
@@ -263,11 +310,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 60,
-    ...(Platform.OS === 'web' && { minHeight: '100vh' }),
+    ...(Platform.OS === "web" && { minHeight: "100vh" }),
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.textPrimary,
     marginBottom: 15,
     paddingHorizontal: 20,
@@ -277,13 +324,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   quickAccessGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     paddingHorizontal: 15,
   },
   quickAccessCard: {
-    width: '48%',
+    width: "48%",
     backgroundColor: colors.cardBackground,
     borderRadius: 12,
     padding: 15,
@@ -293,38 +340,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    alignItems: 'center',
+    alignItems: "center",
   },
   quickAccessIconContainer: {
     backgroundColor: colors.contactBackground,
     width: 50,
     height: 50,
     borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 10,
-    position: 'relative',
+    position: "relative",
   },
   quickAccessBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -5,
     right: -5,
     backgroundColor: colors.warning,
     borderRadius: 10,
     width: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   quickAccessBadgeText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   quickAccessText: {
     fontSize: 16,
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   menuContainer: {
     marginTop: 10,
@@ -341,16 +388,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: "#F0F0F0",
   },
   menuItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   menuIcon: {
@@ -361,8 +408,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   menuRightContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   badge: {
     backgroundColor: colors.primary,
@@ -372,9 +419,9 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   badgeText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   valueText: {
     fontSize: 14,

@@ -24,6 +24,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import colors from "../constants/colors";
+import logo from "../assets/logo.png";
 
 const LoginScreen = ({ navigation }) => {
   const [loginId, setLoginId] = useState("");
@@ -131,7 +132,7 @@ const LoginScreen = ({ navigation }) => {
           >
             <View style={styles.header}>
               <Image
-                source={require("../assets/logo.png")}
+                source={logo}
                 style={[styles.logo, isLargeScreen && styles.logoLarge]}
                 resizeMode="contain"
               />

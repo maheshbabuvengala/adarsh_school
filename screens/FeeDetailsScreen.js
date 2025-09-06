@@ -100,53 +100,6 @@ const FeeDetailsScreen = ({ navigation }) => {
     return num.toLocaleString("en-IN");
   };
 
-  const renderFeeItem = (title, data) => {
-    return (
-      <View style={styles.feeItem} key={title}>
-        <View style={styles.feeNameContainer}>
-          <Text style={styles.feeNameText}>{title}</Text>
-        </View>
-        <View style={styles.feeItemDetails}>
-          <View style={styles.feeDetailColumn}>
-            <Text style={styles.feeDetailLabel}>Actual</Text>
-            <Text style={styles.feeDetailValue}>
-              ₹{formatAmount(data.Actual)}
-            </Text>
-          </View>
-          <View style={styles.feeDetailColumn}>
-            <Text style={styles.feeDetailLabel}>Committed</Text>
-            <Text style={styles.feeDetailValue}>
-              ₹{formatAmount(data.Committed)}
-            </Text>
-          </View>
-          <View style={styles.feeDetailColumn}>
-            <Text style={styles.feeDetailLabel}>Paid</Text>
-            <Text style={[styles.feeDetailValue, styles.paidText]}>
-              ₹{formatAmount(data.Paid)}
-            </Text>
-          </View>
-          <View style={styles.feeDetailColumn}>
-            <Text style={styles.feeDetailLabel}>Due</Text>
-            <Text
-              style={[
-                styles.feeDetailValue,
-                Number(data.Due) > 0 ? styles.dueText : styles.paidText,
-              ]}
-            >
-              ₹{formatAmount(data.Due)}
-            </Text>
-          </View>
-          <View style={styles.feeDetailColumn}>
-            <Text style={styles.feeDetailLabel}>Discount</Text>
-            <Text style={[styles.feeDetailValue, styles.discountText]}>
-              ₹{formatAmount(data.Discount)}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient
@@ -160,7 +113,7 @@ const FeeDetailsScreen = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Icon name="arrow-left" size={24} color="#FFF" />
+            <Icon name="arrow-left" size={24} color={colors.buttonText} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Fee Details</Text>
           <View style={styles.headerRight} />
@@ -178,70 +131,140 @@ const FeeDetailsScreen = ({ navigation }) => {
             />
           ) : feeData ? (
             <View style={styles.container}>
+              {/* Table Header */}
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableCell, styles.headerCell]}>
+                  Fee Name
+                </Text>
+                <Text style={[styles.tableCell, styles.headerCell]}>
+                  Actual
+                </Text>
+                <Text style={[styles.tableCell, styles.headerCell]}>
+                  Committed
+                </Text>
+                <Text style={[styles.tableCell, styles.headerCell]}>Paid</Text>
+                <Text style={[styles.tableCell, styles.headerCell]}>Due</Text>
+                <Text style={[styles.tableCell, styles.headerCell]}>
+                  Discount
+                </Text>
+              </View>
+
+              {/* Fee Rows */}
               {Array.isArray(feeData)
                 ? feeData
                     .filter((item) => item.FeeName !== "Totals")
-                    .map((item, index) =>
-                      renderFeeItem(item.FeeName || `Fee ${index + 1}`, item)
-                    )
+                    .map((item, index) => (
+                      <View style={styles.tableRow} key={index}>
+                        <Text style={styles.tableCell}>{item.FeeName}</Text>
+                        <Text style={styles.tableCell}>
+                          ₹{formatAmount(item.Actual)}
+                        </Text>
+                        <Text style={styles.tableCell}>
+                          ₹{formatAmount(item.Committed)}
+                        </Text>
+                        <Text style={[styles.tableCell, styles.paidText]}>
+                          ₹{formatAmount(item.Paid)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.tableCell,
+                            Number(item.Due) > 0
+                              ? styles.dueText
+                              : styles.paidText,
+                          ]}
+                        >
+                          ₹{formatAmount(item.Due)}
+                        </Text>
+                        <Text style={[styles.tableCell, styles.discountText]}>
+                          ₹{formatAmount(item.Discount)}
+                        </Text>
+                      </View>
+                    ))
                 : Object.keys(feeData)
                     .filter((key) => key !== "Total")
-                    .map((key) => renderFeeItem(key, feeData[key]))}
+                    .map((key, index) => (
+                      <View style={styles.tableRow} key={index}>
+                        <Text style={styles.tableCell}>{key}</Text>
+                        <Text style={styles.tableCell}>
+                          ₹{formatAmount(feeData[key].Actual)}
+                        </Text>
+                        <Text style={styles.tableCell}>
+                          ₹{formatAmount(feeData[key].Committed)}
+                        </Text>
+                        <Text style={[styles.tableCell, styles.paidText]}>
+                          ₹{formatAmount(feeData[key].Paid)}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.tableCell,
+                            Number(feeData[key].Due) > 0
+                              ? styles.dueText
+                              : styles.paidText,
+                          ]}
+                        >
+                          ₹{formatAmount(feeData[key].Due)}
+                        </Text>
+                        <Text style={[styles.tableCell, styles.discountText]}>
+                          ₹{formatAmount(feeData[key].Discount)}
+                        </Text>
+                      </View>
+                    ))}
 
               {/* Total Summary */}
               {feeData.Total && (
-                <View style={[styles.feeItem, styles.totalContainer]}>
-                  <Text style={styles.totalTitle}>Total Summary</Text>
-                  <View style={styles.feeItemDetails}>
-                    <View style={styles.feeDetailColumn}>
-                      <Text style={styles.feeDetailLabel}>Actual</Text>
-                      <Text style={styles.feeDetailValue}>
-                        ₹{formatAmount(feeData.Total.Actual)}
-                      </Text>
-                    </View>
-                    <View style={styles.feeDetailColumn}>
-                      <Text style={styles.feeDetailLabel}>Committed</Text>
-                      <Text style={styles.feeDetailValue}>
-                        ₹{formatAmount(feeData.Total.Committed)}
-                      </Text>
-                    </View>
-                    <View style={styles.feeDetailColumn}>
-                      <Text style={styles.feeDetailLabel}>Paid</Text>
-                      <Text style={[styles.feeDetailValue, styles.paidText]}>
-                        ₹{formatAmount(feeData.Total.Paid)}
-                      </Text>
-                    </View>
-                    <View style={styles.feeDetailColumn}>
-                      <Text style={styles.feeDetailLabel}>Due</Text>
-                      <Text
-                        style={[
-                          styles.feeDetailValue,
-                          Number(feeData.Total.Due) > 0
-                            ? styles.dueText
-                            : styles.paidText,
-                        ]}
-                      >
-                        ₹{formatAmount(feeData.Total.Due)}
-                      </Text>
-                    </View>
-                    <View style={styles.feeDetailColumn}>
-                      <Text style={styles.feeDetailLabel}>Discount</Text>
-                      <Text
-                        style={[styles.feeDetailValue, styles.discountText]}
-                      >
-                        ₹{formatAmount(feeData.Total.Discount)}
-                      </Text>
-                    </View>
+                <>
+                  <View style={styles.tableHeader}>
+                    <Text
+                      style={[
+                        styles.tableCell,
+                        styles.headerCell,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      Total Summary
+                    </Text>
+                    <Text style={styles.tableCell}></Text>
+                    <Text style={styles.tableCell}></Text>
+                    <Text style={styles.tableCell}></Text>
+                    <Text style={styles.tableCell}></Text>
+                    <Text style={styles.tableCell}></Text>
                   </View>
-                </View>
-              )}
+                  <View
+                    style={[styles.tableRow, { backgroundColor: "#f9f9f9" }]}
+                  >
+                    <Text style={styles.tableCell}>Total</Text>
+                    <Text style={styles.tableCell}>
+                      ₹{formatAmount(feeData.Total.Actual)}
+                    </Text>
+                    <Text style={styles.tableCell}>
+                      ₹{formatAmount(feeData.Total.Committed)}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.paidText]}>
+                      ₹{formatAmount(feeData.Total.Paid)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.tableCell,
+                        Number(feeData.Total.Due) > 0
+                          ? styles.dueText
+                          : styles.paidText,
+                      ]}
+                    >
+                      ₹{formatAmount(feeData.Total.Due)}
+                    </Text>
+                    <Text style={[styles.tableCell, styles.discountText]}>
+                      ₹{formatAmount(feeData.Total.Discount)}
+                    </Text>
+                  </View>
 
-              {feeData.Total?.Due > 0 && (
-                <TouchableOpacity style={styles.payNowButton}>
-                  <Text style={styles.payNowButtonText}>
-                    Pay Now (₹{formatAmount(feeData.Total.Due)})
-                  </Text>
-                </TouchableOpacity>
+                  {feeData.Total.Due > 0 && (
+                    <TouchableOpacity style={styles.payNowButton}>
+                      <Text style={styles.payNowButtonText}>
+                        Pay Now (₹{formatAmount(feeData.Total.Due)})
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
           ) : (
@@ -290,7 +313,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: "#FFF",
+    color: colors.buttonText,
     fontWeight: "bold",
     flex: 1,
     textAlign: "center",
@@ -309,41 +332,29 @@ const styles = StyleSheet.create({
   loadingIndicator: {
     marginVertical: 40,
   },
-  feeItem: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  feeNameContainer: {
-    marginBottom: 10,
-  },
-  feeNameText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-  },
-  feeItemDetails: {
+  tableHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    backgroundColor: "#EEE",
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    borderRadius: 6,
   },
-  feeDetailColumn: {
-    alignItems: "center",
+  tableRow: {
+    flexDirection: "row",
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
   },
-  feeDetailLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 5,
-  },
-  feeDetailValue: {
-    fontSize: 14,
-    fontWeight: "500",
+  tableCell: {
+    flex: 1,
+    fontSize: 13,
+    textAlign: "center",
     color: colors.textPrimary,
+  },
+  headerCell: {
+    fontWeight: "bold",
+    color: colors.textTertiary,
   },
   paidText: {
     color: "#4CAF50",
@@ -355,23 +366,12 @@ const styles = StyleSheet.create({
   discountText: {
     color: "#FF9800",
   },
-  totalContainer: {
-    backgroundColor: "#F5F5F5",
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-  },
-  totalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 10,
-  },
   payNowButton: {
     backgroundColor: colors.primary,
     borderRadius: 8,
     padding: 15,
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 15,
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   payNowButtonText: {
-    color: "#FFF",
+    color: colors.buttonText,
     fontSize: 16,
     fontWeight: "bold",
   },
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   retryButtonText: {
-    color: "#FFF",
+    color: colors.buttonText,
     fontSize: 16,
   },
 });

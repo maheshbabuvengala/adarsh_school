@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,12 +9,11 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
-  Alert,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import colors from '../constants/colors';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import colors from "../constants/colors";
 
 const NotificationsScreen = ({ navigation }) => {
   const [notifications, setNotifications] = useState([]);
@@ -25,59 +24,51 @@ const NotificationsScreen = ({ navigation }) => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Get user data from AsyncStorage
-      const userDataString = await AsyncStorage.getItem('userData');
-      if (!userDataString) {
-        throw new Error('User data not found');
-      }
+
+      const userDataString = await AsyncStorage.getItem("userData");
+      if (!userDataString) throw new Error("User data not found");
 
       const userData = JSON.parse(userDataString);
       const { branch, seqStudentId } = userData;
 
-      if (!branch || !seqStudentId) {
-        throw new Error('Branch or Student ID missing');
-      }
+      if (!branch || !seqStudentId)
+        throw new Error("Branch or Student ID missing");
 
-      // Fetch notifications from API
       const response = await fetch(
-        `https://oxfordjc.com/appservices/classcirculars.php?branch=${encodeURIComponent(branch)}&seqStudentId=${encodeURIComponent(seqStudentId)}`
+        `https://oxfordjc.com/appservices/classcirculars.php?branch=${encodeURIComponent(
+          branch
+        )}&seqStudentId=${encodeURIComponent(seqStudentId)}`
       );
 
-      // First check if the response is HTML (contains <html> tag)
       const responseText = await response.text();
-      
-      if (responseText.includes('<html') || responseText.includes('<!DOCTYPE')) {
-        throw new Error('Server returned HTML instead of JSON. Please try again later.');
-      }
+      if (responseText.includes("<html") || responseText.includes("<!DOCTYPE"))
+        throw new Error("Server returned HTML instead of JSON");
 
-      // Try to parse as JSON
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        throw new Error('Invalid response format from server');
+        console.error("JSON parse error:", parseError);
+        throw new Error("Invalid response format from server");
       }
 
-      // Check if the response has the expected format
-      if (typeof data !== 'object' || data === null) {
-        throw new Error('Unexpected response format');
-      }
+      if (typeof data !== "object" || data === null)
+        throw new Error("Unexpected response format");
 
-      // Transform the API response to match our notification format
-      const transformedNotifications = Object.entries(data).map(([key, value]) => ({
-        id: key,
-        date: value.circularDate || 'No date',
-        title: 'School Circular',
-        message: value.circular || 'No message',
-        read: false,
-        important: true
-      }));
+      const transformedNotifications = Object.entries(data).map(
+        ([key, value]) => ({
+          id: key,
+          date: value.circularDate || "No date",
+          title: "School Circular",
+          message: value.circular || "No message",
+          read: false,
+          important: true,
+        })
+      );
 
       setNotifications(transformedNotifications);
     } catch (err) {
-      console.error('Error fetching notifications:', err);
+      console.error("Error fetching notifications:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -89,52 +80,35 @@ const NotificationsScreen = ({ navigation }) => {
   }, []);
 
   const markAsRead = (id) => {
-    setNotifications(notifications.map(notification =>
-      notification.id === id ? { ...notification, read: true } : notification
-    ));
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
   };
 
   const deleteNotification = (id) => {
-    setNotifications(notifications.filter(notification => notification.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-        <LinearGradient colors={colors.backgroundGradient} style={[styles.gradientBackground, styles.loadingContainer]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
-        </LinearGradient>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-        <LinearGradient colors={colors.backgroundGradient} style={[styles.gradientBackground, styles.errorContainer]}>
-          <Icon name="alert-circle" size={50} color={colors.error} />
-          <Text style={styles.errorText}>Error loading notifications</Text>
-          <Text style={styles.errorSubtext}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchNotifications}
-          >
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </LinearGradient>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-      <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
-        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      <LinearGradient
+        colors={colors.backgroundGradient}
+        style={styles.gradientBackground}
+      >
+        <View
+          style={[
+            styles.header,
+            {
+              paddingTop:
+                Platform.OS === "android" ? StatusBar.currentHeight : 0,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <Icon name="arrow-left" size={24} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notifications</Text>
@@ -145,55 +119,94 @@ const NotificationsScreen = ({ navigation }) => {
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingHorizontal: 15, paddingVertical: 15, paddingBottom: 60 }}
+            contentContainerStyle={{
+              paddingHorizontal: 15,
+              paddingVertical: 15,
+              paddingBottom: 60,
+            }}
           >
-            {notifications.map((notification) => (
-              <View
-                key={notification.id}
-                style={[
-                  styles.notificationCard,
-                  notification.important && styles.importantCard,
-                  notification.read && styles.readCard
-                ]}
-              >
-                <View style={styles.notificationHeader}>
-                  <Text style={styles.notificationDate}>{notification.date}</Text>
-                  {notification.important && (
-                    <View style={styles.importantBadge}>
-                      <Icon name="alert-circle" size={16} color="#FFF" />
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.notificationTitle}>{notification.title}</Text>
-                <Text style={styles.notificationMessage}>{notification.message}</Text>
-
-                <View style={styles.notificationActions}>
-                  {!notification.read && (
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => markAsRead(notification.id)}
-                    >
-                      <Icon name="check" size={18} color={colors.primary} />
-                      <Text style={styles.actionText}>Mark as Read</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => deleteNotification(notification.id)}
-                  >
-                    <Icon name="trash-can-outline" size={18} color={colors.error} />
-                    <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
+            {loading ? (
+              <View style={styles.inlineLoader}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Loading notifications...</Text>
               </View>
-            ))}
-
-            {notifications.length === 0 && (
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Icon name="alert-circle" size={50} color={colors.error} />
+                <Text style={styles.errorText}>
+                  Error loading notifications
+                </Text>
+                <Text style={styles.errorSubtext}>{error}</Text>
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={fetchNotifications}
+                >
+                  <Text style={styles.retryButtonText}>Try Again</Text>
+                </TouchableOpacity>
+              </View>
+            ) : notifications.length === 0 ? (
               <View style={styles.emptyState}>
                 <Icon name="bell-off" size={50} color={colors.textSecondary} />
                 <Text style={styles.emptyText}>No notifications found</Text>
-                <Text style={styles.emptySubtext}>You'll see important notices here when available</Text>
+                <Text style={styles.emptySubtext}>
+                  You'll see important notices here when available
+                </Text>
               </View>
+            ) : (
+              notifications.map((notification) => (
+                <View
+                  key={notification.id}
+                  style={[
+                    styles.notificationCard,
+                    notification.important && styles.importantCard,
+                    notification.read && styles.readCard,
+                  ]}
+                >
+                  <View style={styles.notificationHeader}>
+                    <Text style={styles.notificationDate}>
+                      {notification.date}
+                    </Text>
+                    {notification.important && (
+                      <View style={styles.importantBadge}>
+                        <Icon name="alert-circle" size={16} color="#FFF" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.notificationTitle}>
+                    {notification.title}
+                  </Text>
+                  <Text style={styles.notificationMessage}>
+                    {notification.message}
+                  </Text>
+
+                  <View style={styles.notificationActions}>
+                    {!notification.read && (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => markAsRead(notification.id)}
+                      >
+                        <Icon name="check" size={18} color={colors.primary} />
+                        <Text style={styles.actionText}>Mark as Read</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => deleteNotification(notification.id)}
+                    >
+                      <Icon
+                        name="trash-can-outline"
+                        size={18}
+                        color={colors.error}
+                      />
+                      <Text
+                        style={[styles.actionText, { color: colors.error }]}
+                      >
+                        Delete
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
             )}
           </ScrollView>
         </View>
@@ -211,9 +224,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: colors.primary,
@@ -225,10 +238,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: "#FFF",
+    fontWeight: "bold",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     marginLeft: -24,
   },
   headerRight: {
@@ -249,15 +262,15 @@ const styles = StyleSheet.create({
   },
   importantCard: {
     borderLeftColor: colors.error,
-    backgroundColor: '#FFF9F9',
+    backgroundColor: "#FFF9F9",
   },
   readCard: {
     opacity: 0.8,
   },
   notificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   notificationDate: {
@@ -269,13 +282,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   notificationTitle: {
     fontSize: 18,
     color: colors.textPrimary,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   notificationMessage: {
@@ -285,14 +298,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   notificationActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
     marginTop: 8,
     gap: 15,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
@@ -303,8 +316,8 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 40,
     minHeight: 300,
   },
@@ -318,33 +331,31 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 5,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   loadingText: {
     marginTop: 20,
     fontSize: 16,
     color: colors.textPrimary,
   },
+  inlineLoader: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
   errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: "center",
     padding: 20,
   },
   errorText: {
     fontSize: 18,
     color: colors.error,
     marginTop: 15,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   errorSubtext: {
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   retryButton: {
     marginTop: 20,
@@ -354,7 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   retryButtonText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 16,
   },
 });
