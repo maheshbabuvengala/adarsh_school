@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
@@ -11,55 +10,18 @@ import {
   Image,
   Dimensions,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import colors from '../constants/colors';
 
 const ActivitiesScreen = ({ navigation }) => {
-  const activities = [
-    {
-      id: 1,
-      title: 'SCIENCE FAIR',
-      description: 'ADARSH SCIENCE FAIR',
-      date: '15-07-2025',
-      type: 'science',
-      images: [
-        require('../assets/science1.jpeg'),
-        require('../assets/science1.jpeg'),
-        require('../assets/science1.jpeg'),
-      ],
-      details: 'Annual science fair showcasing student projects in physics, chemistry and biology.'
-    },
-    {
-      id: 2,
-      title: 'QUIZ COMPETITION',
-      description: 'Term III Quiz Competition',
-      date: '20-07-2025',
-      type: 'quiz',
-      images: [
-        require('../assets/science1.jpeg'),
-        require('../assets/science1.jpeg'),
-      ],
-      details: 'Inter-class quiz competition testing general knowledge and academic skills.'
-    },
-    {
-      id: 3,
-      title: 'CULTURAL FESTIVAL',
-      description: 'Annual cultural festival',
-      date: '25-07-2025',
-      type: 'cultural',
-      images: [
-        require('../assets/science1.jpeg'),
-        require('../assets/science1.jpeg'),
-        require('../assets/science1.jpeg'),
-      ],
-      details: 'Cultural extravaganza featuring dance, music and drama performances.'
-    },
-  ];
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const getIconByType = (type) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case 'science':
         return 'flask';
       case 'quiz':
@@ -72,7 +34,7 @@ const ActivitiesScreen = ({ navigation }) => {
   };
 
   const getColorByType = (type) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case 'science':
         return '#4CAF50';
       case 'quiz':
@@ -83,6 +45,34 @@ const ActivitiesScreen = ({ navigation }) => {
         return colors.primary;
     }
   };
+
+  const fetchActivities = async () => {
+  try {
+    const response = await fetch('https://adarshemschool.com/appservices/allactivities.php');
+    const data = await response.json();
+
+    // Convert object to array
+    const activitiesArray = Object.values(data).map(item => ({
+      id: item.activityId,
+      title: item.activityName,
+      description: item.subject,
+      image: `https://${item.activityImage.replace(/#/g, '/')}`, // Fix image URL
+      date: '', // No date in API, you can set if available
+      type: '', // No type in API, or set logic based on name
+    }));
+
+    setActivities(activitiesArray);
+  } catch (error) {
+    console.error('Error fetching activities:', error);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+  useEffect(() => {
+    fetchActivities();
+  }, []);
 
   const renderActivityCard = ({ item }) => (
     <TouchableOpacity
@@ -95,28 +85,18 @@ const ActivitiesScreen = ({ navigation }) => {
         </View>
         <Text style={styles.activityDate}>{item.date}</Text>
       </View>
-      
-      <Image 
-        source={item.images[0]} 
-        style={styles.cardImage}
-        resizeMode="cover"
-      />
-      
+
+      {item.image && (
+        <Image
+          source={{ uri: item.image }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
+      )}
+
       <View style={styles.cardContent}>
         <Text style={styles.activityTitle}>{item.title}</Text>
         <Text style={styles.activityDescription}>{item.description}</Text>
-        
-        <View style={styles.imageIndicator}>
-          {item.images.map((_, index) => (
-            <View 
-              key={index} 
-              style={[
-                styles.indicatorDot,
-                index === 0 && styles.activeDot
-              ]}
-            />
-          ))}
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -125,32 +105,37 @@ const ActivitiesScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
         <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-        
+
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow-left" size={24} color="#FFF" />
-          </TouchableOpacity>
+  <Icon name="arrow-left" size={24} color="#FFF" />
+</TouchableOpacity>
+
           <Text style={styles.headerTitle}>School Activities</Text>
           <View style={styles.headerRight} />
         </View>
 
         <View style={styles.container}>
-          <Text style={styles.sectionTitle}>Upcoming Events</Text>
-          
-          <FlatList
-            data={activities}
-            renderItem={renderActivityCard}
-            keyExtractor={item => item.id.toString()}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Icon name="calendar-remove" size={50} color={colors.textSecondary} />
-                <Text style={styles.emptyText}>No upcoming activities</Text>
-                <Text style={styles.emptySubtext}>Check back later for scheduled events</Text>
-              </View>
-            }
-          />
+          {/* <Text style={styles.sectionTitle}>Upcoming Events</Text> */}
+
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
+          ) : (
+            <FlatList
+              data={activities}
+              renderItem={renderActivityCard}
+              keyExtractor={(item, index) => index.toString()}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Icon name="calendar-remove" size={50} color={colors.textSecondary} />
+                  <Text style={styles.emptyText}>No upcoming activities</Text>
+                  <Text style={styles.emptySubtext}>Check back later for scheduled events</Text>
+                </View>
+              }
+            />
+          )}
         </View>
       </LinearGradient>
     </SafeAreaView>
@@ -178,19 +163,24 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
   },
   backButton: {
-    padding: 10,
-  },
-  headerTitle: {
-    fontSize: 22,
-    color: '#FFF',
-    fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-    marginLeft: -24,
-  },
-  headerRight: {
-    width: 24,
-  },
+  minWidth: 48,
+  minHeight: 48,
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: 8,
+},
+headerTitle: {
+  fontSize: 22,
+  color: '#FFF',
+  fontWeight: 'bold',
+  flex: 1,
+  textAlign: 'center',
+  marginLeft: 0,  // Remove the negative margin to avoid overlap with back button
+},
+headerRight: {
+  width: 24,
+},
+
   container: {
     flex: 1,
     paddingHorizontal: 15,
@@ -256,23 +246,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 15,
     lineHeight: 22,
-  },
-  imageIndicator: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  indicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#E0E0E0',
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: colors.primary,
-    width: 12,
   },
   emptyState: {
     flex: 1,

@@ -16,7 +16,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.oct.adarsh_school",
+      "package": "com.maheshvengala.adarsh_school",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -29,8 +29,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "dbd48efe-210b-42ad-8580-54fa3ce6d412"
+        "projectId": "4d972100-3a3a-46bb-9f7b-ae2cdb3c61fc"
       }
-    }
+    },
+    "owner": "maheshvengala"
   }
 }
