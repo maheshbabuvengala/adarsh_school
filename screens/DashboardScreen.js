@@ -20,11 +20,14 @@ const DashboardScreen = ({ navigation }) => {
   const [userData, setUserData] = useState({
     name: '',
     school: '',
-    notifications: 3,
+    notifications: 0,
     attendance: '85%',
-    upcomingActivities: 2,
+    upcomingActivities: 0,
     feeDue: 0,
   });
+  const [branchData, setBranchData] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [activities, setActivities] = useState([]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -46,14 +49,38 @@ const DashboardScreen = ({ navigation }) => {
               `https://oxfordjc.com/appservices/studentfees.php?branch=${parsedData.branch}&seqStudentId=${parsedData.seqStudentId}`
             );
             const feeData = await feeResponse.json();
+            
+            // Fetch app homepage data
+            const homepageResponse = await fetch(
+              'https://adarshemschool.com/appservices/apphomepage.php'
+            );
+            const homepageData = await homepageResponse.json();
+            
+            // Process the data
+            setBranchData(homepageData.branch || {});
+            
+            // Process notifications
+            const notificationList = homepageData.notifications ? 
+              Object.values(homepageData.notifications) : [];
+            setNotifications(notificationList);
+            
+            // Process activities
+            const activityList = homepageData.activities ? 
+              [homepageData.activities] : [];
+            setActivities(activityList);
+            
+            // Update user data with counts
             setUserData(prev => ({
               ...prev,
-              feeDue: feeData.Total?.Due || 0
+              feeDue: feeData.Total?.Due || 0,
+              notifications: notificationList.length,
+              upcomingActivities: activityList.length,
+              school: homepageData.branch[parsedData.branch] || parsedData.branch
             }));
           }
         }
       } catch (error) {
-        console.error('Failed to load user data from AsyncStorage:', error);
+        console.error('Failed to load data:', error);
       }
     };
 
@@ -71,8 +98,18 @@ const DashboardScreen = ({ navigation }) => {
   };
 
   const quickAccessItems = [
-    { icon: 'bell', name: 'Notifications', screen: 'Notifications' },
-    { icon: 'calendar-text', name: 'Activities', screen: 'Activities' },
+    { 
+      icon: 'bell', 
+      name: 'Notifications', 
+      screen: 'Notifications',
+      params: { notifications }
+    },
+    { 
+      icon: 'calendar-text', 
+      name: 'Activities', 
+      screen: 'Activities',
+      params: { activities }
+    },
     { icon: 'calendar-check', name: 'Attendance', screen: 'Attendance' },
     { icon: 'cash', name: 'Fee Details', screen: 'FeeDetails' },
   ];
@@ -84,20 +121,31 @@ const DashboardScreen = ({ navigation }) => {
         { icon: 'calendar-check', name: 'Attendance', screen: 'Attendance', value: userData.attendance },
         { icon: 'book-open', name: 'Exam Syllabus', screen: 'ExamSyllabus' },
         { icon: 'clipboard-text', name: 'Exam Results', screen: 'ExamResults' },
-        { icon: 'calendar-text', name: 'Activities', screen: 'Activities', count: userData.upcomingActivities },
+        { 
+          icon: 'calendar-text', 
+          name: 'Activities', 
+          screen: 'Activities',
+          params: { activities },
+          count: userData.upcomingActivities 
+        },
       ],
     },
     {
       title: 'Finance',
       items: [
         { icon: 'cash', name: 'Fee Details', screen: 'FeeDetails', badge: userData.feeDue > 0 },
-       
       ],
     },
     {
       title: 'Account',
       items: [
-        { icon: 'bell', name: 'Notifications', screen: 'Notifications', count: userData.notifications },
+        { 
+          icon: 'bell', 
+          name: 'Notifications', 
+          screen: 'Notifications',
+          params: { notifications },
+          count: userData.notifications 
+        },
         { icon: 'account', name: 'My Profile', screen: 'Profile' },
         { icon: 'lock-reset', name: 'Change Password', screen: 'ChangePassword' },
       ],
@@ -112,7 +160,57 @@ const DashboardScreen = ({ navigation }) => {
 
   const navigateToScreen = (item) => {
     if (item.action) item.action();
-    else if (item.screen) navigation.navigate(item.screen);
+    else if (item.screen) {
+      navigation.navigate(item.screen, item.params || {});
+    }
+  };
+
+  // Function to render the latest notification preview
+  const renderLatestNotification = () => {
+    if (notifications.length === 0) return null;
+    
+    const latest = notifications[0];
+    return (
+      <TouchableOpacity 
+        style={styles.notificationPreview}
+        onPress={() => navigation.navigate('Notifications', { notifications })}
+      >
+        <View style={styles.notificationHeader}>
+          <Icon name="bell" size={16} color={colors.primary} />
+          <Text style={styles.notificationTitle}>Latest Notification</Text>
+          <Text style={styles.notificationDate}>{latest.Date}</Text>
+        </View>
+        <Text 
+          style={styles.notificationMessage} 
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {latest.Message}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Function to render upcoming activity
+  const renderUpcomingActivity = () => {
+    if (activities.length === 0) return null;
+    
+    const activity = activities[0];
+    return (
+      <TouchableOpacity 
+        style={styles.activityPreview}
+        onPress={() => navigation.navigate('Activities', { activities })}
+      >
+        <View style={styles.activityHeader}>
+          <Icon name="calendar-text" size={16} color={colors.primary} />
+          <Text style={styles.activityTitle}>Upcoming Activity</Text>
+        </View>
+        <Text style={styles.activityName}>{activity.activityName}</Text>
+        {activity.subject && (
+          <Text style={styles.activitySubject}>{activity.subject}</Text>
+        )}
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -124,12 +222,13 @@ const DashboardScreen = ({ navigation }) => {
           <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}>
             <View style={styles.userDetails}>
               <Text style={styles.userName}>Welcome, {userData.name}</Text>
-              {/* {userData.feeDue > 0 && (
+              <Text style={styles.schoolName}>{userData.school}</Text>
+              {userData.feeDue > 0 && (
                 <View style={styles.feeAlert}>
                   <Icon name="alert-circle" size={16} color="#FFF" />
                   <Text style={styles.feeAlertText}>Fee Due: ₹{userData.feeDue}</Text>
                 </View>
-              )} */}
+              )}
             </View>
             <View style={styles.logoWrapper}>
               <Image
@@ -146,6 +245,9 @@ const DashboardScreen = ({ navigation }) => {
             keyboardShouldPersistTaps="handled"
             style={Platform.OS === 'web' ? { height: '100vh' } : {}}
           >
+            {renderLatestNotification()}
+            {renderUpcomingActivity()}
+
             <View style={styles.quickAccessContainer}>
               <Text style={styles.sectionTitle}>Quick Access</Text>
               <View style={styles.quickAccessGrid}>
@@ -159,6 +261,16 @@ const DashboardScreen = ({ navigation }) => {
                       <Icon name={item.icon} size={24} color={colors.primary} />
                     </View>
                     <Text style={styles.quickAccessText}>{item.name}</Text>
+                    {item.name === 'Notifications' && userData.notifications > 0 && (
+                      <View style={styles.quickAccessBadge}>
+                        <Text style={styles.quickAccessBadgeText}>{userData.notifications}</Text>
+                      </View>
+                    )}
+                    {item.name === 'Activities' && userData.upcomingActivities > 0 && (
+                      <View style={styles.quickAccessBadge}>
+                        <Text style={styles.quickAccessBadgeText}>{userData.upcomingActivities}</Text>
+                      </View>
+                    )}
                     {item.name === 'Fee Details' && userData.feeDue > 0 && (
                       <View style={styles.quickAccessBadge}>
                         <Text style={styles.quickAccessBadgeText}>!</Text>
@@ -184,7 +296,7 @@ const DashboardScreen = ({ navigation }) => {
                         <Text style={styles.menuText}>{item.name}</Text>
                       </View>
                       <View style={styles.menuRightContent}>
-                        {item.count && (
+                        {item.count && item.count > 0 && (
                           <View style={styles.badge}>
                             <Text style={styles.badgeText}>{item.count}</Text>
                           </View>
@@ -232,6 +344,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
+  schoolName: {
+    fontSize: 14,
+    color: '#FFF',
+    marginBottom: 5,
+  },
   feeAlert: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -272,8 +389,75 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingHorizontal: 20,
   },
+  notificationPreview: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 15,
+    marginHorizontal: 15,
+    marginTop: 15,
+    marginBottom: 10,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  notificationTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginLeft: 8,
+    flex: 1,
+  },
+  notificationDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  notificationMessage: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
+  activityPreview: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 15,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginLeft: 8,
+  },
+  activityName: {
+    fontSize: 15,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  activitySubject: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
   quickAccessContainer: {
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 10,
   },
   quickAccessGrid: {
@@ -294,6 +478,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     alignItems: 'center',
+    position: 'relative',
   },
   quickAccessIconContainer: {
     backgroundColor: colors.contactBackground,
@@ -303,7 +488,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
-    position: 'relative',
   },
   quickAccessBadge: {
     position: 'absolute',
