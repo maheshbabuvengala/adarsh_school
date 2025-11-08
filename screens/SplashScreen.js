@@ -14,10 +14,10 @@ export default function SplashScreen({ navigation }) {
           if (parsedUser?.isLoggedIn) {
             navigation.replace("Dashboard");
           } else {
-            if(schoolConfig.InfoScreen){
-              navigation.replace("Info")
-            }else{
-              navigation.replace("Login")
+            if (schoolConfig.InfoScreen) {
+              navigation.replace("Info");
+            } else {
+              navigation.replace("Login");
             }
           }
         }, 2000);
@@ -32,11 +32,8 @@ export default function SplashScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../assets/logo.png")} // Your splash logo
-        style={styles.logo}
-      />
-      <Text style={styles.title}>Welcome to My School App</Text>
+      <Image source={schoolConfig.login} style={styles.logo} />
+      <Text style={styles.title}>{schoolConfig.splashscreencaption}</Text>
     </View>
   );
 }
@@ -49,9 +46,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logo: {
-    width: 150,
+    width: "80%",
     height: 150,
-    marginBottom: 20,
+    marginBottom: 10,
     resizeMode: "contain",
   },
   title: {

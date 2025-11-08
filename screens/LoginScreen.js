@@ -24,7 +24,8 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import colors from "../constants/colors";
-import logo from "../assets/logo.png";
+// import logo from "../assets/logo.png";
+import schoolConfig from "../config/schoolConfig";
 
 const LoginScreen = ({ navigation }) => {
   const [loginId, setLoginId] = useState("");
@@ -132,14 +133,14 @@ const LoginScreen = ({ navigation }) => {
           >
             <View style={styles.header}>
               <Image
-                source={logo}
+                source={schoolConfig.logo}
                 style={[styles.logo, isLargeScreen && styles.logoLarge]}
                 resizeMode="contain"
               />
             </View>
 
             <View style={[styles.card, isLargeScreen && styles.cardLarge]}>
-              <Text style={styles.loginTitle}>Welcome Back!</Text>
+              {schoolConfig.splashscreencaption ? (<Text style={styles.loginTitle}>{schoolConfig.splashscreencaption}</Text>):null}
               <Text style={styles.loginSubtitle}>Sign in to continue</Text>
 
               <View style={styles.inputContainer}>
@@ -227,16 +228,26 @@ const LoginScreen = ({ navigation }) => {
                   isLargeScreen && styles.contactRowLarge,
                 ]}
               >
-                <View style={styles.contactItem}>
+                {/* <View style={styles.contactItem}>
                   <Icon
                     name="phone"
                     size={hp("2.5%")}
                     color={colors.primary}
                     style={styles.contactIcon}
                   />
-                  <Text style={styles.contactText}>9299997557</Text>
-                </View>
-                <View style={styles.contactItem}>
+                  <Text style={styles.contactText}>{schoolConfig.phoneno}</Text>
+                </View> */}
+                {schoolConfig.phoneno?(<View style={styles.contactItem}>
+                  <Icon
+                    name="phone"
+                    size={hp("2.5%")}
+                    color={colors.primary}
+                    style={styles.contactIcon}
+                  />
+                  <Text style={styles.contactText}>{schoolConfig.phoneno}</Text>
+                </View>):null}
+                
+                {schoolConfig.email?(<View style={styles.contactItem}>
                   <Icon
                     name="email"
                     size={hp("2.5%")}
@@ -244,21 +255,22 @@ const LoginScreen = ({ navigation }) => {
                     style={styles.contactIcon}
                   />
                   <Text style={styles.contactText}>
-                    adarsh.tenali@gmail.com
+                    {schoolConfig.email}
                   </Text>
-                </View>
-                <View style={styles.contactItem}>
+                </View>):null}
+                
+                {schoolConfig.location ? (<View style={styles.contactItem}>
                   <Icon
                     name="map-marker"
                     size={hp("2.5%")}
                     color={colors.primary}
                     style={styles.contactIcon}
                   />
-                  <Text style={styles.contactText}>Tenali, AP</Text>
-                </View>
+                  <Text style={styles.contactText}>{schoolConfig.location}</Text>
+                </View>) : null}
               </View>
 
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={() =>
                   Linking.openURL(
                     "https://adarshemschool.com/stulogin2024/privacy_policy.php"
@@ -273,7 +285,23 @@ const LoginScreen = ({ navigation }) => {
                   style={styles.privacyIcon}
                 />
                 <Text style={styles.privacyText}>Privacy Policy</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
+              {schoolConfig.privacypolicy ? (<TouchableOpacity
+                onPress={() =>
+                  Linking.openURL(
+                    schoolConfig.privacypolicy
+                  )
+                }
+                style={styles.privacyButton}
+              >
+                <Icon
+                  name="shield-lock"
+                  size={hp("2.2%")}
+                  color={colors.primary}
+                  style={styles.privacyIcon}
+                />
+                <Text style={styles.privacyText}>Privacy Policy</Text>
+              </TouchableOpacity>) : null}
             </View>
           </KeyboardAvoidingView>
         </ScrollView>

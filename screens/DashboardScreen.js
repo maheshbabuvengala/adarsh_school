@@ -14,19 +14,20 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import Constants from "expo-constants";
 import colors from "../constants/colors";
 import schoolConfig from "../config/schoolConfig";
-import logo from "../assets/logo.png";
 
 const DashboardScreen = ({ navigation }) => {
   const [userData, setUserData] = useState({
     name: "",
     school: "",
-    notifications: 3,
-    attendance: "85%",
-    upcomingActivities: 2,
-    feeDue: 0,
-  });
+    notifications: "",
+    attendance: "",
+    upcomingActivities: "",
+    feeDue: ""});
   const [branchData, setBranchData] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -53,6 +54,9 @@ const DashboardScreen = ({ navigation }) => {
               feeDue: feeData.Total?.Due || 0,
             }));
           }
+
+          // Register push token
+          registerForPushNotificationsAsync(parsedData);
         }
       } catch (error) {
         console.error("Failed to load user data from AsyncStorage:", error);
@@ -62,14 +66,58 @@ const DashboardScreen = ({ navigation }) => {
     fetchUserData();
   }, []);
 
+  // --- Function to register push notifications ---
+  const registerForPushNotificationsAsync = async (parsedData) => {
+    try {
+      let token;
+      if (Device.isDevice) {
+        const { status: existingStatus } =
+          await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        if (existingStatus !== "granted") {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== "granted") {
+          Alert.alert("Permission not granted", "Enable notifications in settings.");
+          return;
+        }
+
+        token = (
+          await Notifications.getExpoPushTokenAsync({
+            projectId: Constants.expoConfig.extra?.eas?.projectId,
+          })
+        ).data;
+
+        // Store token locally
+        await AsyncStorage.setItem("fcmToken", token);
+        console.log(token)
+
+        // Send token to backend
+        await fetch("https://oxfordjc.com/appservices/registermytoken.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `registerId=${token}&branch=${parsedData.branch}&seqStudentId=${parsedData.seqStudentId}`,
+        });
+      } else {
+        Alert.alert("Error", "Must use physical device for Push Notifications");
+      }
+    } catch (err) {
+      console.error("Error registering push notifications:", err);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await AsyncStorage.removeItem("isLoggedIn");
       await AsyncStorage.removeItem("userData");
-      if(schoolConfig.InfoScreen){
-        navigation.replace("Info")
-      }else{
-        navigation.replace("Login")
+      await AsyncStorage.removeItem("fcmToken"); // clear token on logout
+      if (schoolConfig.InfoScreen) {
+        navigation.replace("Info");
+      } else {
+        navigation.replace("Login");
       }
     } catch (error) {
       Alert.alert("Error", "Failed to logout.");
@@ -77,6 +125,11 @@ const DashboardScreen = ({ navigation }) => {
   };
 
   const quickAccessItems = [
+    schoolConfig.AttendanceScreen && {
+      icon: "calendar-check",
+      name: "Attendance",
+      screen: "AttendanceSummary",
+    },
     schoolConfig.NotificationsScreen && {
       icon: "bell",
       name: "Notifications",
@@ -87,11 +140,12 @@ const DashboardScreen = ({ navigation }) => {
       name: "Activities",
       screen: "Activities",
     },
-    schoolConfig.AttendanceScreen && {
-      icon: "calendar-check",
-      name: "Attendance",
-      screen: "Attendance",
-    },
+  schoolConfig.ExamResultsScreen && {
+    icon: "clipboard-text",
+    name: "Exam Results",
+    screen: "ExamResults",
+  },
+    
     schoolConfig.FeeDetailsScreen && {
       icon: "cash",
       name: "Fee Details",
@@ -106,7 +160,7 @@ const DashboardScreen = ({ navigation }) => {
         schoolConfig.AttendanceScreen && {
           icon: "calendar-check",
           name: "Attendance",
-          screen: "Attendance",
+          screen: "AttendanceSummary",
           value: userData.attendance,
         },
         schoolConfig.ExamSyllabusScreen && {
@@ -172,7 +226,6 @@ const DashboardScreen = ({ navigation }) => {
     }
   };
 
-  // Function to render the latest notification preview
   const renderLatestNotification = () => {
     if (notifications.length === 0) return null;
 
@@ -198,7 +251,6 @@ const DashboardScreen = ({ navigation }) => {
     );
   };
 
-  // Function to render upcoming activity
   const renderUpcomingActivity = () => {
     if (activities.length === 0) return null;
 
@@ -244,9 +296,12 @@ const DashboardScreen = ({ navigation }) => {
             <View style={styles.userDetails}>
               <Text style={styles.userName}>Welcome, {userData.name}</Text>
             </View>
-            <View style={styles.logoWrapper}>
-              <Image source={logo} style={styles.logo} resizeMode="contain" />
-            </View>
+            {/* <View style={styles.logoWrapper}>
+              <Image source={schoolConfig.logo} style={styles.logo} resizeMode="contain" />
+            </View> */}
+            {schoolConfig.logo && (<View style={styles.logoWrapper}>
+              <Image source={schoolConfig.login } style={styles.logo} resizeMode="contain" />
+            </View>)}
           </View>
 
           <ScrollView

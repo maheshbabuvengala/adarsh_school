@@ -10,17 +10,39 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useIsFocused } from "@react-navigation/native";
 import colors from "../constants/colors";
+import * as WebBrowser from "expo-web-browser";
 
-const FeeDetailsScreen = ({ navigation }) => {
+const FeeDetailsScreen = ({ navigation, route }) => {
   const [feeData, setFeeData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [seqStudentId, setSeqStudentId] = useState(null);
   const [branch, setBranch] = useState(null);
+  const [totalDue, setTotalDue] = useState(0);
+  const [totalCommitted, setTotalCommitted] = useState(0);
+  const [totalPaid, setTotalPaid] = useState(0);
+  const [totalDiscount, setTotalDiscount] = useState(0);
+  const [customAmount, setCustomAmount] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
+  const isFocused = useIsFocused();
+
+  // Check if coming from payment success deep link
+  useEffect(() => {
+    if (route.params?.fromPaymentSuccess) {
+      Alert.alert(
+        "Payment Successful!",
+        "Thank you for your payment. Your fee details have been updated."
+      );
+    }
+  }, [route.params]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -44,14 +66,16 @@ const FeeDetailsScreen = ({ navigation }) => {
     fetchUserData();
   }, []);
 
+  // Refresh data when screen comes into focus (including from deep link)
   useEffect(() => {
-    if (seqStudentId && branch) {
+    if (isFocused && seqStudentId && branch) {
       fetchFeeData();
     }
-  }, [seqStudentId, branch]);
+  }, [isFocused, seqStudentId, branch]);
 
   const fetchFeeData = async () => {
     try {
+      setIsLoading(true);
       const response = await fetch(
         `https://oxfordjc.com/appservices/studentfees.php?branch=${branch}&seqStudentId=${seqStudentId}`
       );
@@ -82,6 +106,9 @@ const FeeDetailsScreen = ({ navigation }) => {
       }
 
       setFeeData(result);
+
+      // Use backend calculated totals directly
+      extractBackendTotals(result);
     } catch (error) {
       console.error("API Error:", error);
       Alert.alert(
@@ -90,14 +117,268 @@ const FeeDetailsScreen = ({ navigation }) => {
           "Failed to fetch fee data. Please check your connection."
       );
       setFeeData(null);
+      setTotalDue(0);
+      setTotalCommitted(0);
+      setTotalPaid(0);
+      setTotalDiscount(0);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const extractBackendTotals = (data) => {
+    // Use the totals provided by backend API directly
+    if (Array.isArray(data)) {
+      // Find the total row in array data
+      const totalRow = data.find(
+        (item) => item.FeeName && item.FeeName.toLowerCase().includes("total")
+      );
+      if (totalRow) {
+        setTotalCommitted(Number(totalRow.Committed) || 0);
+        setTotalPaid(Number(totalRow.Paid) || 0);
+        setTotalDue(Number(totalRow.Due) || 0);
+        setTotalDiscount(Number(totalRow.Discount) || 0);
+      }
+    } else if (data.Total) {
+      // If data has a Total object
+      setTotalCommitted(Number(data.Total.Committed) || 0);
+      setTotalPaid(Number(data.Total.Paid) || 0);
+      setTotalDue(Number(data.Total.Due) || 0);
+      setTotalDiscount(Number(data.Total.Discount) || 0);
+    } else {
+      // If data is an object, look for total key
+      const totalKey = Object.keys(data).find((key) =>
+        key.toLowerCase().includes("total")
+      );
+      if (totalKey && data[totalKey]) {
+        setTotalCommitted(Number(data[totalKey].Committed) || 0);
+        setTotalPaid(Number(data[totalKey].Paid) || 0);
+        setTotalDue(Number(data[totalKey].Due) || 0);
+        setTotalDiscount(Number(data[totalKey].Discount) || 0);
+      }
+    }
+  };
+
+  const handlePayNow = async (amount = totalDue) => {
+    navigation.navigate("CCAvenuePaymentScreen", {
+      branch,
+      seqStudentId,
+      amount,
+    });
+  };
+
+  const handleCustomAmountPay = () => {
+    const amount = parseFloat(customAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount.");
+      return;
+    }
+    handlePayNow(amount);
+  };
+
   const formatAmount = (value) => {
     const num = Number(value ?? 0);
     return num.toLocaleString("en-IN");
+  };
+
+  // Function to render fee rows based on data structure
+  const renderFeeRows = () => {
+    if (Array.isArray(feeData)) {
+      return feeData
+        .filter(
+          (item) =>
+            item.FeeName && !item.FeeName.toLowerCase().includes("total")
+        )
+        .map((item, index) => (
+          <View style={styles.tableRow} key={index}>
+            <Text style={styles.tableCell}>{item.FeeName}</Text>
+            <Text style={styles.tableCell}>
+              ₹{formatAmount(item.Committed)}
+            </Text>
+            <Text style={[styles.tableCell, styles.paidText]}>
+              ₹{formatAmount(item.Paid)}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                Number(item.Due) > 0 ? styles.dueText : styles.paidText,
+              ]}
+            >
+              ₹{formatAmount(item.Due)}
+            </Text>
+            <Text style={[styles.tableCell, styles.discountText]}>
+              ₹{formatAmount(item.Discount)}
+            </Text>
+          </View>
+        ));
+    } else {
+      return Object.keys(feeData)
+        .filter(
+          (key) => key !== "Total" && !key.toLowerCase().includes("total")
+        )
+        .map((key, index) => (
+          <View style={styles.tableRow} key={index}>
+            <Text style={styles.tableCell}>{key}</Text>
+            <Text style={styles.tableCell}>
+              ₹{formatAmount(feeData[key].Committed)}
+            </Text>
+            <Text style={[styles.tableCell, styles.paidText]}>
+              ₹{formatAmount(feeData[key].Paid)}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                Number(feeData[key].Due) > 0 ? styles.dueText : styles.paidText,
+              ]}
+            >
+              ₹{formatAmount(feeData[key].Due)}
+            </Text>
+            <Text style={[styles.tableCell, styles.discountText]}>
+              ₹{formatAmount(feeData[key].Discount)}
+            </Text>
+          </View>
+        ));
+    }
+  };
+
+  // Function to render total row from backend data
+  const renderTotalRow = () => {
+    if (Array.isArray(feeData)) {
+      const totalRow = feeData.find(
+        (item) => item.FeeName && item.FeeName.toLowerCase().includes("total")
+      );
+      if (totalRow) {
+        return (
+          <View style={[styles.tableRow, styles.totalRow]}>
+            <Text style={[styles.tableCell, styles.totalRowText]}>
+              {totalRow.FeeName}
+            </Text>
+            <Text style={[styles.tableCell, styles.totalRowText]}>
+              ₹{formatAmount(totalRow.Committed)}
+            </Text>
+            <Text
+              style={[styles.tableCell, styles.paidText, styles.totalRowText]}
+            >
+              ₹{formatAmount(totalRow.Paid)}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                Number(totalRow.Due) > 0 ? styles.dueText : styles.paidText,
+                styles.totalRowText,
+              ]}
+            >
+              ₹{formatAmount(totalRow.Due)}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.discountText,
+                styles.totalRowText,
+              ]}
+            >
+              ₹{formatAmount(totalRow.Discount)}
+            </Text>
+          </View>
+        );
+      }
+    } else if (feeData.Total) {
+      return (
+        <View style={[styles.tableRow, styles.totalRow]}>
+          <Text style={[styles.tableCell, styles.totalRowText]}>Total</Text>
+          <Text style={[styles.tableCell, styles.totalRowText]}>
+            ₹{formatAmount(feeData.Total.Committed)}
+          </Text>
+          <Text
+            style={[styles.tableCell, styles.paidText, styles.totalRowText]}
+          >
+            ₹{formatAmount(feeData.Total.Paid)}
+          </Text>
+          <Text
+            style={[
+              styles.tableCell,
+              Number(feeData.Total.Due) > 0 ? styles.dueText : styles.paidText,
+              styles.totalRowText,
+            ]}
+          >
+            ₹{formatAmount(feeData.Total.Due)}
+          </Text>
+          <Text
+            style={[styles.tableCell, styles.discountText, styles.totalRowText]}
+          >
+            ₹{formatAmount(feeData.Total.Discount)}
+          </Text>
+        </View>
+      );
+    } else {
+      const totalKey = Object.keys(feeData).find((key) =>
+        key.toLowerCase().includes("total")
+      );
+      if (totalKey && feeData[totalKey]) {
+        return (
+          <View style={[styles.tableRow, styles.totalRow]}>
+            <Text style={[styles.tableCell, styles.totalRowText]}>
+              {totalKey}
+            </Text>
+            <Text style={[styles.tableCell, styles.totalRowText]}>
+              ₹{formatAmount(feeData[totalKey].Committed)}
+            </Text>
+            <Text
+              style={[styles.tableCell, styles.paidText, styles.totalRowText]}
+            >
+              ₹{formatAmount(feeData[totalKey].Paid)}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                Number(feeData[totalKey].Due) > 0
+                  ? styles.dueText
+                  : styles.paidText,
+                styles.totalRowText,
+              ]}
+            >
+              ₹{formatAmount(feeData[totalKey].Due)}
+            </Text>
+            <Text
+              style={[
+                styles.tableCell,
+                styles.discountText,
+                styles.totalRowText,
+              ]}
+            >
+              ₹{formatAmount(feeData[totalKey].Discount)}
+            </Text>
+          </View>
+        );
+      }
+    }
+
+    // Fallback to calculated totals if no backend total found
+    return (
+      <View style={[styles.tableRow, styles.totalRow]}>
+        <Text style={[styles.tableCell, styles.totalRowText]}>Total</Text>
+        <Text style={[styles.tableCell, styles.totalRowText]}>
+          ₹{formatAmount(totalCommitted)}
+        </Text>
+        <Text style={[styles.tableCell, styles.paidText, styles.totalRowText]}>
+          ₹{formatAmount(totalPaid)}
+        </Text>
+        <Text
+          style={[
+            styles.tableCell,
+            totalDue > 0 ? styles.dueText : styles.paidText,
+            styles.totalRowText,
+          ]}
+        >
+          ₹{formatAmount(totalDue)}
+        </Text>
+        <Text
+          style={[styles.tableCell, styles.discountText, styles.totalRowText]}
+        >
+          ₹{formatAmount(totalDiscount)}
+        </Text>
+      </View>
+    );
   };
 
   return (
@@ -119,182 +400,123 @@ const FeeDetailsScreen = ({ navigation }) => {
           <View style={styles.headerRight} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoid}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          {isLoading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={styles.loadingIndicator}
-            />
-          ) : feeData ? (
-            <View style={styles.container}>
-              {/* Table Header */}
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableCell, styles.headerCell]}>
-                  Fee Name
-                </Text>
-                <Text style={[styles.tableCell, styles.headerCell]}>
-                  Actual
-                </Text>
-                <Text style={[styles.tableCell, styles.headerCell]}>
-                  Committed
-                </Text>
-                <Text style={[styles.tableCell, styles.headerCell]}>Paid</Text>
-                <Text style={[styles.tableCell, styles.headerCell]}>Due</Text>
-                <Text style={[styles.tableCell, styles.headerCell]}>
-                  Discount
-                </Text>
-              </View>
-
-              {/* Fee Rows */}
-              {Array.isArray(feeData)
-                ? feeData
-                    .filter((item) => item.FeeName !== "Totals")
-                    .map((item, index) => (
-                      <View style={styles.tableRow} key={index}>
-                        <Text style={styles.tableCell}>{item.FeeName}</Text>
-                        <Text style={styles.tableCell}>
-                          ₹{formatAmount(item.Actual)}
-                        </Text>
-                        <Text style={styles.tableCell}>
-                          ₹{formatAmount(item.Committed)}
-                        </Text>
-                        <Text style={[styles.tableCell, styles.paidText]}>
-                          ₹{formatAmount(item.Paid)}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.tableCell,
-                            Number(item.Due) > 0
-                              ? styles.dueText
-                              : styles.paidText,
-                          ]}
-                        >
-                          ₹{formatAmount(item.Due)}
-                        </Text>
-                        <Text style={[styles.tableCell, styles.discountText]}>
-                          ₹{formatAmount(item.Discount)}
-                        </Text>
-                      </View>
-                    ))
-                : Object.keys(feeData)
-                    .filter((key) => key !== "Total")
-                    .map((key, index) => (
-                      <View style={styles.tableRow} key={index}>
-                        <Text style={styles.tableCell}>{key}</Text>
-                        <Text style={styles.tableCell}>
-                          ₹{formatAmount(feeData[key].Actual)}
-                        </Text>
-                        <Text style={styles.tableCell}>
-                          ₹{formatAmount(feeData[key].Committed)}
-                        </Text>
-                        <Text style={[styles.tableCell, styles.paidText]}>
-                          ₹{formatAmount(feeData[key].Paid)}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.tableCell,
-                            Number(feeData[key].Due) > 0
-                              ? styles.dueText
-                              : styles.paidText,
-                          ]}
-                        >
-                          ₹{formatAmount(feeData[key].Due)}
-                        </Text>
-                        <Text style={[styles.tableCell, styles.discountText]}>
-                          ₹{formatAmount(feeData[key].Discount)}
-                        </Text>
-                      </View>
-                    ))}
-
-              {/* Total Summary */}
-              {feeData.Total && (
-                <>
-                  <View style={styles.tableHeader}>
-                    <Text
-                      style={[
-                        styles.tableCell,
-                        styles.headerCell,
-                        { color: colors.primary },
-                      ]}
-                    >
-                      Total Summary
-                    </Text>
-                    <Text style={styles.tableCell}></Text>
-                    <Text style={styles.tableCell}></Text>
-                    <Text style={styles.tableCell}></Text>
-                    <Text style={styles.tableCell}></Text>
-                    <Text style={styles.tableCell}></Text>
-                  </View>
-                  <View
-                    style={[styles.tableRow, { backgroundColor: "#f9f9f9" }]}
-                  >
-                    <Text style={styles.tableCell}>Total</Text>
-                    <Text style={styles.tableCell}>
-                      ₹{formatAmount(feeData.Total.Actual)}
-                    </Text>
-                    <Text style={styles.tableCell}>
-                      ₹{formatAmount(feeData.Total.Committed)}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.paidText]}>
-                      ₹{formatAmount(feeData.Total.Paid)}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.tableCell,
-                        Number(feeData.Total.Due) > 0
-                          ? styles.dueText
-                          : styles.paidText,
-                      ]}
-                    >
-                      ₹{formatAmount(feeData.Total.Due)}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.discountText]}>
-                      ₹{formatAmount(feeData.Total.Discount)}
-                    </Text>
-                  </View>
-
-                  {feeData.Total.Due > 0 && (
-                    <TouchableOpacity style={styles.payNowButton}>
-                      <Text style={styles.payNowButtonText}>
-                        Pay Now (₹{formatAmount(feeData.Total.Due)})
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
-            </View>
-          ) : (
-            <View style={styles.noDataContainer}>
-              <Icon
-                name="alert-circle"
-                size={40}
-                color={colors.textSecondary}
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {isLoading ? (
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+                style={styles.loadingIndicator}
               />
-              <Text style={styles.noDataText}>No fee data available</Text>
-              <TouchableOpacity
-                onPress={fetchFeeData}
-                style={styles.retryButton}
-              >
-                <Text style={styles.retryButtonText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
+            ) : feeData ? (
+              <View style={styles.container}>
+                {/* Table Header */}
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableCell, styles.headerCell]}>
+                    Fee Name
+                  </Text>
+                  <Text style={[styles.tableCell, styles.headerCell]}>
+                    Committed
+                  </Text>
+                  <Text style={[styles.tableCell, styles.headerCell]}>
+                    Paid
+                  </Text>
+                  <Text style={[styles.tableCell, styles.headerCell]}>Due</Text>
+                  <Text style={[styles.tableCell, styles.headerCell]}>
+                    Discount
+                  </Text>
+                </View>
+
+                {/* Fee Rows - Only individual fee items */}
+                {renderFeeRows()}
+
+                {/* Total Summary - Directly from backend API */}
+                {renderTotalRow()}
+
+                {/* Payment Options - Show when there's due amount */}
+                {totalDue > 0 && (
+                  <View style={styles.customAmountContainer}>
+                    <View style={styles.amountInputRow}>
+                      <Text style={styles.customAmountLabel}>
+                        Paying Amount
+                      </Text>
+                      <View style={styles.amountInputWrapper}>
+                        <View style={styles.amountInputContainer}>
+                          <Text style={styles.currencySymbol}>₹</Text>
+                          <TextInput
+                            style={styles.amountInput}
+                            placeholder="Enter amount"
+                            placeholderTextColor="#999"
+                            keyboardType="numeric"
+                            value={customAmount}
+                            onChangeText={setCustomAmount}
+                            maxLength={10}
+                          />
+                        </View>
+                        <Text style={styles.maxAmountText}>
+                          {`(Max Amount: ₹${formatAmount(totalDue)})`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.bottomRow}>
+                      <TouchableOpacity
+                        onPress={handleCustomAmountPay}
+                        style={styles.confirmPayButton}
+                        disabled={!customAmount}
+                      >
+                        <LinearGradient
+                          colors={["#4CAF50", "#45a049"]}
+                          style={styles.confirmPayGradient}
+                        >
+                          <Text style={styles.confirmPayButtonText}>
+                            Pay ₹{customAmount || "0"}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.noDataContainer}>
+                <Icon
+                  name="alert-circle"
+                  size={40}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.noDataText}>No fee data available</Text>
+                <TouchableOpacity
+                  onPress={fetchFeeData}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </LinearGradient>
     </SafeAreaView>
   );
 };
 
+// Styles remain the same as your original code
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.primary,
   },
   gradientBackground: {
+    flex: 1,
+  },
+  keyboardAvoid: {
     flex: 1,
   },
   header: {
@@ -346,11 +568,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
   },
+  totalRow: {
+    backgroundColor: "#E3F2FD",
+    borderRadius: 4,
+    marginVertical: 2,
+  },
   tableCell: {
     flex: 1,
     fontSize: 13,
     textAlign: "center",
     color: colors.textPrimary,
+  },
+  totalRowText: {
+    fontWeight: "bold",
+    color: "black",
   },
   headerCell: {
     fontWeight: "bold",
@@ -366,21 +597,143 @@ const styles = StyleSheet.create({
   discountText: {
     color: "#FF9800",
   },
-  payNowButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
+  paymentSection: {
+    marginTop: 20,
     padding: 15,
-    alignItems: "center",
-    marginTop: 15,
+    backgroundColor: "white",
+    borderRadius: 12,
     shadowColor: colors.cardShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  payNowButtonText: {
-    color: colors.buttonText,
+  paymentTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.textPrimary,
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  payButton: {
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  payButtonGradient: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  payButtonText: {
+    color: "white",
     fontSize: 16,
+    fontWeight: "bold",
+  },
+  customAmountButton: {
+    borderRadius: 12,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  customAmountGradient: {
+    flexDirection: "row",
+    borderRadius: 12,
+    padding: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  customAmountButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  customAmountContainer: {
+    backgroundColor: "#f8f9fa",
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+
+  amountInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  customAmountLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 25,
+  },
+  amountInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 48,
+    marginBottom: 4,
+  },
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginRight: 8,
+  },
+  amountInput: {
+    // flex: 1,
+    fontSize: 16,
+    color: "#333",
+  },
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+  },
+  maxAmountText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+    textAlign: "left", // Align to the left under the input
+    paddingLeft: 4, // Small padding to align with input content
+  },
+
+  confirmPayButton: {
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  customAmountActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  confirmPayButton: {
+    width: "40%",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  confirmPayGradient: {
+    padding: 12,
+    alignItems: "center",
+  },
+  confirmPayButtonText: {
+    color: "white",
+    fontSize: 14,
     fontWeight: "bold",
   },
   noDataContainer: {

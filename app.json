@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "Adarsh School",
-    "slug": "adarsh_school",
+    "name": "Oxford Junior College",
+    "slug": "oxford-junior-college",
+    "scheme":"oxfordjc",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/final_logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/final_logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -16,10 +17,10 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.maheshvengala.adarsh_school",
+      "package": "com.maheshvengala.oxfordjuniorcollege",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/final_logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true
@@ -29,7 +30,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "4d972100-3a3a-46bb-9f7b-ae2cdb3c61fc"
+        "projectId": "fbfa3f6a-0183-4fbc-9422-4842fc210625"
       }
     },
     "owner": "maheshvengala"

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Success - Returning to App</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #eaf8ee;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    .loading {
+      font-size: 18px;
+      color: #25D366;
+    }
+    .countdown {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .continue-btn {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16;
+      margin-top: 20px;
+      transition: background 0.3s;
+    }
+    .continue-btn:hover {
+      background: #0b7dda;
+    }
+    .continue-btn:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+
+  <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+  <div style="font-size: 24px; color: #25D366; margin-bottom: 20px; font-weight: bold;">
+    Payment Successful!
+  </div>
+  <p>Thank you for your payment. Click the button below to return to the app.</p>
+  
+  <button class="continue-btn" id="continueBtn">Continue to App</button>
+
+  <script>
+    const continueBtn = document.getElementById('continueBtn');
+    
+    continueBtn.addEventListener('click', returnToApp);
+    
+    function returnToApp() {
+      const deepLink = 'oxfordjc://payment-success';
+      
+      // Try to open the app with deep link
+      window.location.href = deepLink;
+      
+      // Fallback for web or if app not installed
+      setTimeout(() => {
+        if (!document.hidden) {
+          document.body.innerHTML = `
+            <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+            <div style="font-size: 24px; color: #25D366; margin-bottom: 20px; font-weight: bold;">
+              Payment Successful!
+            </div>
+            <p>Please return to the Oxford Junior College app to see your updated fee details.</p>
+            <button onclick="window.close()" class="continue-btn">
+              Close Page
+            </button>
+          `;
+        }
+      }, 2000);
+    }
+    
+    // Optional: Auto-trigger after 3 seconds
+    setTimeout(() => {
+      returnToApp();
+    }, 3000);
+  </script>
+</body>
+</html>
