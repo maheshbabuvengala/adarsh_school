@@ -18,13 +18,13 @@ const SCHOOL_CONFIGS = {
     logo: require("../assets/play_store_512.png"),
     login: require("../assets/oxford_login.jpg"),
     API_PATH: "https://oxfordjc.com/appservices",
-    phoneno: "8632359755",
-    email: "oxfordiitschool@gmail.com",
-    location: "Brundavan Gardens,Guntur,A.P",
+    phoneno: "0863 - 2236559",
+    email: "oxfordjuniorcollege2024@gmail.com",
+    location: "Opp, BSNL Office, Chandramouli Nagar 1st line, Guntur 522007.",
     splashscreencaption: "Welcome to Oxford Junior College",
-    privacypolicy : "https://oxfordjc.com/privacypolicy.php",
+    privacypolicy: "https://oxfordjc.com/privacypolicy.php",
   },
-  adarsh: { 
+  adarsh: {
     NotificationsScreen: false,
     AttendanceScreen: false,
     ExamSyllabusScreen: false,

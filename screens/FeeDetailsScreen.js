@@ -28,7 +28,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
   const [totalDue, setTotalDue] = useState(0);
   const [totalCommitted, setTotalCommitted] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0);
-  const [totalDiscount, setTotalDiscount] = useState(0);
   const [customAmount, setCustomAmount] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
@@ -120,7 +119,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
       setTotalDue(0);
       setTotalCommitted(0);
       setTotalPaid(0);
-      setTotalDiscount(0);
     } finally {
       setIsLoading(false);
     }
@@ -137,14 +135,12 @@ const FeeDetailsScreen = ({ navigation, route }) => {
         setTotalCommitted(Number(totalRow.Committed) || 0);
         setTotalPaid(Number(totalRow.Paid) || 0);
         setTotalDue(Number(totalRow.Due) || 0);
-        setTotalDiscount(Number(totalRow.Discount) || 0);
       }
     } else if (data.Total) {
       // If data has a Total object
       setTotalCommitted(Number(data.Total.Committed) || 0);
       setTotalPaid(Number(data.Total.Paid) || 0);
       setTotalDue(Number(data.Total.Due) || 0);
-      setTotalDiscount(Number(data.Total.Discount) || 0);
     } else {
       // If data is an object, look for total key
       const totalKey = Object.keys(data).find((key) =>
@@ -154,7 +150,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
         setTotalCommitted(Number(data[totalKey].Committed) || 0);
         setTotalPaid(Number(data[totalKey].Paid) || 0);
         setTotalDue(Number(data[totalKey].Due) || 0);
-        setTotalDiscount(Number(data[totalKey].Discount) || 0);
       }
     }
   };
@@ -206,9 +201,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
             >
               ₹{formatAmount(item.Due)}
             </Text>
-            <Text style={[styles.tableCell, styles.discountText]}>
-              ₹{formatAmount(item.Discount)}
-            </Text>
           </View>
         ));
     } else {
@@ -232,9 +224,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
               ]}
             >
               ₹{formatAmount(feeData[key].Due)}
-            </Text>
-            <Text style={[styles.tableCell, styles.discountText]}>
-              ₹{formatAmount(feeData[key].Discount)}
             </Text>
           </View>
         ));
@@ -270,15 +259,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
             >
               ₹{formatAmount(totalRow.Due)}
             </Text>
-            <Text
-              style={[
-                styles.tableCell,
-                styles.discountText,
-                styles.totalRowText,
-              ]}
-            >
-              ₹{formatAmount(totalRow.Discount)}
-            </Text>
           </View>
         );
       }
@@ -302,11 +282,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
             ]}
           >
             ₹{formatAmount(feeData.Total.Due)}
-          </Text>
-          <Text
-            style={[styles.tableCell, styles.discountText, styles.totalRowText]}
-          >
-            ₹{formatAmount(feeData.Total.Discount)}
           </Text>
         </View>
       );
@@ -339,15 +314,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
             >
               ₹{formatAmount(feeData[totalKey].Due)}
             </Text>
-            <Text
-              style={[
-                styles.tableCell,
-                styles.discountText,
-                styles.totalRowText,
-              ]}
-            >
-              ₹{formatAmount(feeData[totalKey].Discount)}
-            </Text>
           </View>
         );
       }
@@ -371,11 +337,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
           ]}
         >
           ₹{formatAmount(totalDue)}
-        </Text>
-        <Text
-          style={[styles.tableCell, styles.discountText, styles.totalRowText]}
-        >
-          ₹{formatAmount(totalDiscount)}
         </Text>
       </View>
     );
@@ -428,9 +389,6 @@ const FeeDetailsScreen = ({ navigation, route }) => {
                     Paid
                   </Text>
                   <Text style={[styles.tableCell, styles.headerCell]}>Due</Text>
-                  <Text style={[styles.tableCell, styles.headerCell]}>
-                    Discount
-                  </Text>
                 </View>
 
                 {/* Fee Rows - Only individual fee items */}
@@ -507,7 +465,7 @@ const FeeDetailsScreen = ({ navigation, route }) => {
   );
 };
 
-// Styles remain the same as your original code
+// Updated styles to remove discount column
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -594,70 +552,6 @@ const styles = StyleSheet.create({
     color: "#F44336",
     fontWeight: "bold",
   },
-  discountText: {
-    color: "#FF9800",
-  },
-  paymentSection: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: "white",
-    borderRadius: 12,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  paymentTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: colors.textPrimary,
-    marginBottom: 15,
-    textAlign: "center",
-  },
-  payButton: {
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  payButtonGradient: {
-    flexDirection: "row",
-    borderRadius: 12,
-    padding: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  payButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  customAmountButton: {
-    borderRadius: 12,
-    shadowColor: colors.cardShadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  customAmountGradient: {
-    flexDirection: "row",
-    borderRadius: 12,
-    padding: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  customAmountButtonText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
   customAmountContainer: {
     backgroundColor: "#f8f9fa",
     padding: 15,
@@ -665,7 +559,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e9ecef",
   },
-
   amountInputRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -695,7 +588,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   amountInput: {
-    // flex: 1,
     fontSize: 16,
     color: "#333",
   },
@@ -708,20 +600,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     fontStyle: "italic",
-    textAlign: "left", // Align to the left under the input
-    paddingLeft: 4, // Small padding to align with input content
+    textAlign: "left",
+    paddingLeft: 4,
   },
-
-  confirmPayButton: {
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  customAmountActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-
   confirmPayButton: {
     width: "40%",
     borderRadius: 8,
