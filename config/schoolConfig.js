@@ -23,6 +23,7 @@ const SCHOOL_CONFIGS = {
     location: "Opp, BSNL Office, Chandramouli Nagar 1st line, Guntur 522007.",
     splashscreencaption: "Welcome to Oxford Junior College",
     privacypolicy: "https://oxfordjc.com/privacypolicy.php",
+    title: "Oxford Junior College",
   },
   adarsh: {
     NotificationsScreen: false,

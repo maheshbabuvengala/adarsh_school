@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,12 +10,13 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-  Alert
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import colors from '../constants/colors'; // Adjust the path if needed
+  Alert,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import colors from "../constants/colors";
+import schoolConfig from "../config/schoolConfig";
 
 const ProfileScreen = ({ navigation }) => {
   const [profileData, setProfileData] = useState(null);
@@ -23,25 +24,27 @@ const ProfileScreen = ({ navigation }) => {
 
   const fetchProfileData = async () => {
     try {
-      const userDataString = await AsyncStorage.getItem('userData');
-      if (!userDataString) throw new Error('User data not found');
+      const userDataString = await AsyncStorage.getItem("userData");
+      if (!userDataString) throw new Error("User data not found");
 
       const userData = JSON.parse(userDataString);
       const { branch, seqStudentId } = userData;
 
-      if (!branch || !seqStudentId) throw new Error('Branch or Student ID missing');
+      if (!branch || !seqStudentId)
+        throw new Error("Branch or Student ID missing");
 
       const response = await fetch(
-        `https://oxfordjc.com/appservices/studentprofile.php?seqStudentId=${seqStudentId}&branch=${branch}`
+        ` https://oxfordjc.com/appservices/studentprofile.php?seqStudentId=${seqStudentId}&branch=${branch}`
       );
       const responseText = await response.text();
 
-      if (responseText.includes('<html')) throw new Error('Invalid response');
+      if (responseText.includes("<html")) throw new Error("Invalid response");
 
       const json = JSON.parse(responseText);
       setProfileData(json[0]);
+      // console.log(profileData)
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
@@ -62,25 +65,34 @@ const ProfileScreen = ({ navigation }) => {
   if (!profileData) {
     return (
       <View style={styles.loader}>
-        <Text style={{ color: 'red' }}>No profile data available.</Text>
+        <Text style={{ color: "red" }}>No profile data available.</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <LinearGradient colors={colors.backgroundGradient} style={styles.gradientBackground}>
+      <LinearGradient
+        colors={colors.backgroundGradient}
+        style={styles.gradientBackground}
+      >
         <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
 
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
             <Icon name="arrow-left" size={24} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Student Profile</Text>
           <View style={styles.headerRight} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Profile Header */}
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
@@ -88,7 +100,7 @@ const ProfileScreen = ({ navigation }) => {
                 source={
                   profileData.stuphoto
                     ? { uri: profileData.stuphoto }
-                    : require('../assets/avatar.png')
+                    : require("../assets/avatar.png")
                 }
                 style={styles.avatar}
                 resizeMode="contain"
@@ -97,11 +109,15 @@ const ProfileScreen = ({ navigation }) => {
                 <Icon name="check-decagram" size={20} color="#FFF" />
               </View>
             </View>
-            <Text style={styles.schoolName}>Oxford Junior College</Text>
-            <Text style={styles.userName}>{`${profileData.name} ${profileData.surname}`}</Text>
+            <Text style={styles.schoolName}>{schoolConfig.title}</Text>
+            <Text
+              style={styles.userName}
+            >{`${profileData.name} ${profileData.surname}`}</Text>
             <Text style={styles.userClass}>
-              <Icon name="school" size={16} color={colors.primary} /> {`${profileData.className} / ${profileData.groupName} / ${profileData.sectionName}`}
+              <Icon name="school" size={16} color={colors.primary} />{" "}
+              {`${profileData.className} / ${profileData.groupName} / ${profileData.sectionName}`}
             </Text>
+            <Text>Admision No:{`${profileData.admissionNo}`}</Text>
           </View>
 
           {/* Profile Details Card */}
@@ -109,28 +125,56 @@ const ProfileScreen = ({ navigation }) => {
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Personal Information</Text>
 
-              <DetailItem icon="account" label="Father's Name" value={profileData.fatherName} />
-              <DetailItem icon="phone" label="Contact Number" value={profileData.mobileNo} />
-              <DetailItem icon="map-marker" label="Address" value={profileData.address} />
-              <DetailItem icon="map" label="Location" value={profileData.location} />
+              <DetailItem
+                icon="account"
+                label="Father's Name"
+                value={profileData.fatherName}
+              />
+              <DetailItem
+                icon="phone"
+                label="Contact Number"
+                value={profileData.mobileNo}
+              />
+              <DetailItem
+                icon="map-marker"
+                label="Address"
+                value={profileData.address}
+              />
+              <DetailItem
+                icon="map"
+                label="Location"
+                value={profileData.location}
+              />
             </View>
 
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Academic Information</Text>
               <View style={styles.infoGrid}>
                 <View style={styles.infoItem}>
-                  <View style={[styles.infoIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                  <View
+                    style={[
+                      styles.infoIconContainer,
+                      { backgroundColor: "#E3F2FD" },
+                    ]}
+                  >
                     <Icon name="calendar" size={20} color={colors.primary} />
                   </View>
                   <Text style={styles.infoLabel}>Academic Year</Text>
                   <Text style={styles.infoValue}>2024-2025</Text>
                 </View>
                 <View style={styles.infoItem}>
-                  <View style={[styles.infoIconContainer, { backgroundColor: '#E8F5E9' }]}>
+                  <View
+                    style={[
+                      styles.infoIconContainer,
+                      { backgroundColor: "#E8F5E9" },
+                    ]}
+                  >
                     <Icon name="account-badge" size={20} color="#4CAF50" />
                   </View>
                   <Text style={styles.infoLabel}>Mode</Text>
-                  <Text style={styles.infoValue}>{profileData.modeOfAdmission}</Text>
+                  <Text style={styles.infoValue}>
+                    {profileData.modeOfAdmission}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -157,27 +201,27 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.primary },
   gradientBackground: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
     backgroundColor: colors.primary,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 0,
   },
   backButton: { padding: 10 },
   headerTitle: {
     fontSize: 22,
-    color: '#FFF',
-    fontWeight: 'bold',
+    color: "#FFF",
+    fontWeight: "bold",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     marginLeft: -24,
   },
   headerRight: { width: 24 },
   scrollContent: { paddingBottom: 30 },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 25,
     paddingHorizontal: 20,
   },
@@ -185,48 +229,48 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
-    position: 'relative',
+    position: "relative",
   },
   avatar: { width: 110, height: 110, borderRadius: 55 },
   verifiedBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 5,
     right: 5,
     backgroundColor: colors.primary,
     borderRadius: 12,
     width: 24,
     height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: '#FFF',
+    borderColor: "#FFF",
   },
   schoolName: {
     fontSize: 16,
     color: colors.textSecondary,
     marginBottom: 5,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   userName: {
     fontSize: 22,
     color: colors.textPrimary,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 5,
   },
   userClass: {
     fontSize: 16,
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   detailsCard: {
     backgroundColor: colors.cardBackground,
@@ -242,27 +286,27 @@ const styles = StyleSheet.create({
   detailSection: { marginBottom: 20 },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.textPrimary,
     marginBottom: 15,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: "#F0F0F0",
   },
   detailItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: "#F0F0F0",
   },
   detailIconContainer: {
     backgroundColor: colors.primary,
     width: 36,
     height: 36,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 15,
   },
   detailTextContainer: { flex: 1 },
@@ -274,47 +318,47 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 16,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 22,
   },
   infoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginTop: 10,
   },
   infoItem: {
-    width: '48%',
-    backgroundColor: '#FAFAFA',
+    width: "48%",
+    backgroundColor: "#FAFAFA",
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   infoIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   infoLabel: {
     fontSize: 13,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 3,
   },
   infoValue: {
     fontSize: 15,
     color: colors.textPrimary,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
   },
   loader: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 
